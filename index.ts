@@ -13,9 +13,15 @@ async function main(): Promise<void> {
     return;
   }
 
-  const root = await Jj.findRoot(resolve(args.path));
+  // Resolve the path before chdir so relative paths work from the invocation CWD.
+  const targetPath = resolve(args.path);
+  // Bun's dev bundler computes asset paths relative to CWD; anchor to jiffy's
+  // src/ directory so chunks resolve correctly when run from any path.
+  process.chdir(join(import.meta.dir, "src"));
+
+  const root = await Jj.findRoot(targetPath);
   if (!root) {
-    console.error(`jiffy: ${resolve(args.path)} is not inside a jj workspace`);
+    console.error(`jiffy: ${targetPath} is not inside a jj workspace`);
     process.exit(1);
   }
 

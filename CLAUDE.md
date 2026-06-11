@@ -40,72 +40,158 @@ test("hello world", () => {
 
 Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
 
-Server:
+For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
 
-```ts#index.ts
-import index from "./index.html"
+---
 
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
-```
+# Jiffy — jj Diff Reviewer
 
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
+Jiffy is a local CLI tool that launches a React UI for reviewing Jujutsu (jj) diffs while an agent works. Stack navigation, inline comments, PR links, and live SSE updates.
 
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
-```
-
-With the following `frontend.tsx`:
-
-```tsx#frontend.tsx
-import React from "react";
-import { createRoot } from "react-dom/client";
-
-// import .css files directly and it works
-import './index.css';
-
-const root = createRoot(document.body);
-
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
-}
-
-root.render(<Frontend />);
-```
-
-Then, run index.ts
+## Running
 
 ```sh
-bun --hot ./index.ts
+bun start           # production
+bun run dev         # hot reload
+bun test            # test suite
+bun run typecheck   # type check only
 ```
 
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
+`scripts/demo-repo.ts` creates a throwaway stacked jj repo for development. `scripts/screenshot.ts` drives headless Chrome against a running server.
+
+## Architecture
+
+```
+index.ts              CLI entry — arg parsing, Jj setup, server boot, browser open
+lib/
+  args.ts             CLI arg parser + help text
+  exec.ts             Subprocess runner (argv array, no shell injection)
+  jj.ts               Typed jj interface (class Jj)
+  schema.ts           All shared Zod schemas + TypeScript types
+  stack.ts            Pure stack segmentation + push-status logic (no subprocesses)
+  github.ts           gh CLI wrapper for PR links (graceful degradation)
+  comments.ts         CommentStore + markdown export for agent feedback
+  server.ts           Bun.serve routes + SSE RepoWatcher
+src/
+  frontend.tsx        React mount (mounts App to #root)
+  app.tsx             Main React component — layout, SSE subscription, state
+  DiffViewer.tsx      Diff pane with Pierre FileDiff + inline comment UI
+  FileTreePanel.tsx   @pierre/trees file tree (git status, +/− counts)
+  api.ts              Typed fetch client (imports server schemas)
+  ChangeId.tsx        Short change-ID display with prefix highlighting
+  ContextMenu.tsx     Right-click copy-to-clipboard menu
+  HelpModal.tsx       Static help dialog
+config.toml           jj revset aliases for jiffy's queries
+```
+
+## Key Abstractions
+
+### DiffSpec (`src/api.ts`)
+Stable identifier for what is currently being viewed. Survives commit amendments.
+- `WC_SPEC` — working copy diff
+- `LATEST_SPEC` — latest non-empty change
+- `segmentSpec(bookmarkName)` — diff for a stack segment
+- `changeSpec(changeId)` — diff for a specific change
+
+### StackView (`lib/schema.ts`)
+Complete model of the current stack: segments (changes grouped by bookmark), trunk, working copy, push-status booleans. Built by `assembleStack()` in `lib/stack.ts`.
+
+### CommentStore (`lib/comments.ts`)
+JSON persistence in `.jj/jiffy/comments.json`. Comments indexed by `specKey` for stable grouping. `exportMarkdown()` produces agent-ready markdown grouped by file with `file:line` references.
+
+### RepoWatcher (`lib/server.ts`)
+Polls jj op log every 2s; broadcasts `repo-changed` SSE events. Defers refetch while a comment draft is open (client signals this via `Referer` header or explicit `/api/refresh`).
+
+## jj CLI Patterns
+
+### `class Jj` (`lib/jj.ts`)
+Primary interface to jj. All output validated with Zod. Key methods:
+- `run(argv, opts)` — raw command
+- `log(revset)` — returns `ChangeInfo[]`
+- `bookmarks()` — returns `BookmarkRow[]`
+- `trunkName()` — detects trunk bookmark name
+- `diffChange(changeId)` — git-format patch for one change
+- `diffRange(from, to)` — git-format patch for a range
+- `describe(changeId, message)` — update commit description
+- `opHeadId()` — current op log head (used by RepoWatcher for polling)
+
+### subprocess util (`lib/exec.ts`)
+- `run(argv: string[], cwd?): Promise<string>` — rejects with `CommandError` on non-zero exit
+- `runToSchema<T>(schema, argv, cwd): Promise<T>` — run + Zod parse
+- `succeeds(argv, cwd): Promise<boolean>` — true if exit 0
+
+Always pass argv as an array, never a shell string. This prevents injection and handles paths with spaces.
+
+### jj templates
+jj 0.41 `json()` template can't serialize mapped lists. Build JSON arrays manually:
+```ts
+// DON'T: json(bookmarks)  — fails for list fields
+// DO: 'bookmarks.map(|b| json(b)).join(",")' wrapped in literal brackets
+```
+
+### `--ignore-working-copy`
+Pass for all background polling calls (`RepoWatcher`, `getStack`). Only omit when the diff explicitly includes the working copy (i.e., revset touches `@`). Use `revsetTouchesWorkingCopy(revset)` from `lib/jj.ts` to check.
+
+### Config isolation in tests
+Pass `--config-file <path>` to avoid touching `~/.config/jj/config.toml`. `JIFFY_JJ_CONFIG` in `lib/jj.ts` points to the project's `config.toml` which adds jiffy-specific revset aliases.
+
+### Revsets (config.toml)
+- `closest_bookmark(x)` — nearest ancestor bookmark
+- `closest_pushable(x)` — nearest described, non-empty, pushable ancestor
+- `unpushable(to)` — undescribed or empty non-merges
+
+## Zod Schemas (`lib/schema.ts`)
+
+All schemas and their inferred types are exported from here:
+- `ChangeInfo` — one `jj log` line
+- `BookmarkRow` — one `jj bookmark list` row
+- `StackSegment` / `StackView` — stack model
+- `GhPullRequest` / `GithubContext` — GitHub data
+- `Comment` / `CommentInput` — inline comment
+- `DiffRequest` / `DiffEndpoint` / `DiffResponse` — diff API
+- `ActionRequest` — discriminated union for jj actions (describe, etc.)
+- `PushStatus` — enum: `"synced" | "outdated" | "unpushed"`
+- `parseJsonLines<T>(schema, text): T[]` — parse newline-delimited JSON
+
+## Pierre Libraries
+
+### @pierre/diffs (`src/DiffViewer.tsx`)
+- `FileDiff` renders a single file's diff from a git patch
+- Line annotations attach comment threads to specific lines
+- Pierre diff components render into shadow DOM — Playwright selectors must pierce it (`diffs-container → pre[data-diff] → div[data-gutter]`)
+- Get git-format patches from jj with `jj diff -r <rev> --git`
+
+### @pierre/trees (`src/FileTreePanel.tsx`)
+- `useFileTree({ paths, gitStatus })` + `<FileTree model={model} />` 
+- `gitStatus` accepts per-path status (`added`, `modified`, `deleted`, etc.)
+- Path-first identity model — use canonical path strings as IDs
+
+## API Routes (`lib/server.ts`)
+
+```
+GET  /api/repo          Current repo info (trunkName, workingCopy)
+GET  /api/stack         Full StackView
+GET  /api/diff          Diff for a DiffSpec (query params)
+GET  /api/comments      List comments (optionally filtered by specKey)
+POST /api/comments      Add a comment
+PATCH /api/comments/:id Update comment text
+DELETE /api/comments/:id Delete comment
+GET  /api/export        Export comments as markdown
+POST /api/actions       Run a jj action (discriminated union)
+POST /api/refresh       Force watcher refresh
+GET  /api/events        SSE stream (broadcasts "repo-changed")
+```
+
+## Testing
+
+Tests create temp jj repos via `jj init` in `beforeAll`. Use fixture helpers to build known commit graphs (stacked commits, bookmarks, empty changes). Test the revset logic, schema parsing, and stack segmentation against real jj output — don't mock jj.
+
+```ts
+import { Jj, JIFFY_JJ_CONFIG } from "../lib/jj";
+// create a temp dir, init jj, run commits, then:
+const jj = new Jj({ cwd: tmpDir, configFile: JIFFY_JJ_CONFIG });
+```
+
+## Connections to jj-pr
+
+`~/code/jj-pr` is the sibling tool for creating/pushing PRs. Jiffy's `lib/exec.ts` and `lib/schema.ts` patterns are modeled on jj-pr. If shared utilities grow, consider extracting a `jj-common` package, but don't do it preemptively.

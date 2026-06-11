@@ -1,20 +1,21 @@
 :root {
   color-scheme: light dark;
-  --bg: #0d1117;
-  --panel: #161b22;
-  --panel-raised: #1c2128;
-  --border: #30363d;
-  --text: #c9d1d9;
-  --text-dim: #8b949e;
-  --accent: #58a6ff;
-  --green: #3fb950;
-  --orange: #d29922;
-  --red: #f85149;
-  --purple: #d2a8ff;
-  --primary-bg: #1f6feb;
-  --primary-bg-hover: #388bfd;
-  --overlay: rgba(1, 4, 9, 0.7);
-  --shadow: rgba(1, 4, 9, 0.55);
+  /* Dark mode: Zed-inspired */
+  --bg: #282c34;
+  --panel: #21252b;
+  --panel-raised: #2c313a;
+  --border: #3a3f4b;
+  --text: #abb2bf;
+  --text-dim: #636d83;
+  --accent: #7eb8f7;
+  --green: #5ba85a;
+  --orange: #c89a4a;
+  --red: #d96c6c;
+  --purple: #b094f0;
+  --primary-bg: #3d6db5;
+  --primary-bg-hover: #4d7ec8;
+  --overlay: rgba(10, 11, 18, 0.75);
+  --shadow: rgba(10, 11, 18, 0.6);
   --font-ui:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --font-mono:
@@ -23,21 +24,22 @@
 
 @media (prefers-color-scheme: light) {
   :root {
+    /* Light mode: Linear-inspired — clean white, soft borders */
     --bg: #ffffff;
-    --panel: #f6f8fa;
+    --panel: #f7f7f8;
     --panel-raised: #ffffff;
-    --border: #d0d7de;
-    --text: #1f2328;
-    --text-dim: #59636e;
-    --accent: #0969da;
-    --green: #1a7f37;
-    --orange: #9a6700;
-    --red: #cf222e;
-    --purple: #8250df;
-    --primary-bg: #0969da;
-    --primary-bg-hover: #0860ca;
-    --overlay: rgba(31, 35, 40, 0.5);
-    --shadow: rgba(31, 35, 40, 0.2);
+    --border: #e5e5e8;
+    --text: #111118;
+    --text-dim: #7f7f8c;
+    --accent: #5966d6;
+    --green: #318a4a;
+    --orange: #9a6400;
+    --red: #c0404a;
+    --purple: #7048b8;
+    --primary-bg: #5966d6;
+    --primary-bg-hover: #4757c8;
+    --overlay: rgba(17, 17, 24, 0.45);
+    --shadow: rgba(17, 17, 24, 0.12);
   }
 }
 
@@ -470,6 +472,20 @@ button.danger {
   border-radius: 8px;
   overflow: hidden;
   scroll-margin-top: 8px;
+  /* Light mode: Linear-exact tints — very low-opacity pure hues over white */
+  --diffs-bg-addition-override: rgba(8, 205, 44, 0.32);
+  --diffs-bg-deletion-override: rgba(255, 33, 21, 0.32);
+  --diffs-bg-addition-emphasis-override: rgba(8, 205, 44, 0.1);
+  --diffs-bg-deletion-emphasis-override: rgba(255, 33, 21, 0.1);
+}
+@media (prefers-color-scheme: dark) {
+  .file-card {
+    /* Same hues, slightly higher opacity for visibility on dark */
+    --diffs-bg-addition-override: rgba(8, 205, 44, 0.12);
+    --diffs-bg-deletion-override: rgba(255, 33, 21, 0.10);
+    --diffs-bg-addition-emphasis-override: rgba(8, 205, 44, 0.22);
+    --diffs-bg-deletion-emphasis-override: rgba(255, 33, 21, 0.18);
+  }
 }
 
 /* -------------------------------------------------------------- comments */
