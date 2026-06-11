@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const CliArgsSchema = z.object({
-  port: z.coerce.number().int().min(1).max(65535).default(5959),
+  port: z.coerce.number().int().min(0).max(65535).default(0),
   open: z.boolean().default(true),
   help: z.boolean().default(false),
   /** Directory to serve; any path inside the jj workspace works. */
@@ -46,7 +46,7 @@ Usage: jiffy [path] [options]
   path           directory inside a jj workspace (default: cwd)
 
 Options:
-  -p, --port N   port to listen on (default: 5959)
+  -p, --port N   port to listen on (default: random)
   --no-open      don't open the browser
   -h, --help     show this help
 `;
