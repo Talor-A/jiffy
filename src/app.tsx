@@ -334,7 +334,9 @@ function SegmentCard({
               <ChangeId id={change.changeId} prefix={change.changeIdPrefix} />
               <span className="change-summary">{summary}</span>
               {change.isWorkingCopy && <span className="wc-marker">@</span>}
-              {change.empty && <span className="empty-marker">empty</span>}
+              {change.empty
+                ? <span className="empty-marker">empty</span>
+                : <span className="file-count">{change.fileCount}</span>}
               {count > 0 && <span className="badge badge-comments">{count}</span>}
             </li>
           );

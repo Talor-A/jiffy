@@ -17,6 +17,7 @@ function change(overrides: Partial<ChangeInfo> = {}): ChangeInfo {
     commitIdPrefix: `commit${counter}`.slice(0, 3),
     description: `change ${counter}\n`,
     empty: false,
+    fileCount: 1,
     immutable: false,
     isWorkingCopy: false,
     parents: [`change${counter + 1}`], // linear: parent is the next (older) one

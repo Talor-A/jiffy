@@ -23,6 +23,7 @@ export const CHANGE_TEMPLATE = [
   `++ ",\\"commitIdPrefix\\":" ++ json(commit_id.shortest(8).prefix())`,
   `++ ",\\"description\\":" ++ json(description)`,
   `++ ",\\"empty\\":" ++ json(empty)`,
+  `++ ",\\"fileCount\\":" ++ json(diff.files().len())`,
   `++ ",\\"immutable\\":" ++ json(immutable)`,
   `++ ",\\"isWorkingCopy\\":" ++ json(current_working_copy)`,
   `++ ",\\"parents\\":[" ++ parents.map(|p| json(p.change_id())).join(",") ++ "]"`,

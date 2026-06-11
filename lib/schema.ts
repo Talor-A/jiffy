@@ -21,6 +21,7 @@ export const ChangeInfoSchema = z.object({
   /** Full description; first line is the summary. Empty string if undescribed. */
   description: z.string(),
   empty: z.boolean(),
+  fileCount: z.number().int().nonnegative(),
   immutable: z.boolean(),
   isWorkingCopy: z.boolean(),
   /** Change ids of parents, first-parent first. */
