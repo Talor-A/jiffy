@@ -137,9 +137,15 @@ export interface DiffSpec {
   params: DiffRequest;
 }
 
+/**
+ * The working-copy view: everything since the nearest bookmark, including
+ * unsaved file edits (the @-revsets make the diff snapshot the working
+ * copy). Shares its key with the unnamed stack segment, which is the same
+ * view.
+ */
 export const WC_SPEC: DiffSpec = {
-  key: "wc",
-  label: "Since last bookmark",
+  key: "segment:@",
+  label: "working copy",
   params: { from: "closest_bookmark(@)", to: "@" },
 };
 
@@ -154,10 +160,12 @@ export function segmentSpec(segment: {
   headChangeId: string;
   baseChangeId: string | null;
 }): DiffSpec {
-  const label = segment.name ?? "working stack";
+  // The unbookmarked tip segment is the working-copy view; the revset form
+  // (unlike pinned change ids) snapshots live file edits into the diff.
+  if (segment.name === null) return WC_SPEC;
   return {
-    key: `segment:${segment.name ?? "@"}`,
-    label,
+    key: `segment:${segment.name}`,
+    label: segment.name,
     params: segment.baseChangeId
       ? { from: segment.baseChangeId, to: segment.headChangeId }
       : { change: segment.headChangeId },

@@ -225,7 +225,12 @@ export function createServer(
             to: params.get("to") ?? undefined,
           });
 
+          // Diff before resolving endpoints: the diff is what snapshots the
+          // working copy for @-revsets, and clients key rendering on the
+          // endpoint commit ids, so the ids must reflect the snapshotted
+          // state the patch was produced from.
           if (spec.change !== undefined) {
+            const patch = await jj.diffChange(spec.change);
             const change = await jj.resolve(spec.change);
             if (!change) {
               return json(
@@ -233,7 +238,6 @@ export function createServer(
                 400,
               );
             }
-            const patch = await jj.diffChange(spec.change);
             const body: DiffResponse = {
               patch,
               change: pickEndpoint(change),
@@ -243,6 +247,7 @@ export function createServer(
             return json(body);
           }
 
+          const patch = await jj.diffRange(spec.from!, spec.to!);
           const [from, to] = await Promise.all([
             jj.resolve(spec.from!),
             jj.resolve(spec.to!),
@@ -255,7 +260,6 @@ export function createServer(
               400,
             );
           }
-          const patch = await jj.diffRange(spec.from!, spec.to!);
           const body: DiffResponse = {
             patch,
             from: pickEndpoint(from),

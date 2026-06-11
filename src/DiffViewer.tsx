@@ -128,6 +128,14 @@ export function DiffViewer({
     [diff.patch],
   );
 
+  // Pierre's VirtualizedFileDiff only adopts a fileDiff on mount, so a card
+  // keyed by file name alone keeps rendering whatever patch it first showed.
+  // Commit shas pin exact content (change ids don't — they survive amends),
+  // so keying on the endpoint shas remounts cards exactly when needed.
+  const diffKey = diff.change
+    ? diff.change.commitId
+    : `${diff.from?.commitId}..${diff.to?.commitId}`;
+
   // Close any open editor when switching views.
   useEffect(() => {
     setDraft(null);
@@ -271,7 +279,7 @@ export function DiffViewer({
           >
             {files.map((file) => (
               <FileDiffCard
-                key={file.name}
+                key={`${diffKey}:${file.name}`}
                 file={file}
                 openMenu={openMenu}
                 diffStyle={diffStyle}

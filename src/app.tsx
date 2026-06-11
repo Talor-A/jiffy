@@ -138,15 +138,12 @@ export function App() {
         </header>
 
         <nav className="quick-views">
-          {[WC_SPEC, LATEST_SPEC].map((quick) => (
-            <button
-              key={quick.key}
-              className={spec.key === quick.key ? "quick active" : "quick"}
-              onClick={() => setSpec(quick)}
-            >
-              {quick.label}
-            </button>
-          ))}
+          <button
+            className={spec.key === LATEST_SPEC.key ? "quick active" : "quick"}
+            onClick={() => setSpec(LATEST_SPEC)}
+          >
+            {LATEST_SPEC.label}
+          </button>
         </nav>
 
         {stack && (

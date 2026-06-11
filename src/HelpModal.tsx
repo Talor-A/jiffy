@@ -23,12 +23,6 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
           <h3>Views</h3>
           <ul>
             <li>
-              <b>Since last bookmark</b> — everything between the nearest
-              bookmarked ancestor and your working copy, including unsaved
-              file edits. This is "what the agent has done since I last
-              marked a checkpoint".
-            </li>
-            <li>
               <b>Latest change</b> — the newest described, non-empty change
               (<code>closest_pushable(@)</code>).
             </li>
@@ -36,7 +30,10 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
               <b>Stack</b> — every change between trunk and <code>@</code>,
               grouped into segments by bookmark. Click a segment to review
               that bookmark's whole diff (its PR), or a single change for
-              just that revision.
+              just that revision. The <b>working copy</b> segment is
+              everything since the nearest bookmark, including unsaved file
+              edits — "what the agent has done since I last marked a
+              checkpoint".
             </li>
           </ul>
         </section>
