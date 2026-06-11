@@ -194,4 +194,4 @@ const jj = new Jj({ cwd: tmpDir, configFile: JIFFY_JJ_CONFIG });
 
 ## Connections to jj-pr
 
-`~/code/jj-pr` is the sibling tool for creating/pushing PRs. Jiffy's `lib/exec.ts` and `lib/schema.ts` patterns are modeled on jj-pr. If shared utilities grow, consider extracting a `jj-common` package, but don't do it preemptively.
+[Talor-A/jj-pr](https://github.com/Talor-A/jj-pr) is the sibling tool for creating/pushing PRs. Jiffy's `lib/exec.ts` and `lib/schema.ts` patterns are modeled on jj-pr. If shared utilities grow, consider extracting a `jj-common` package, but don't do it preemptively.
