@@ -527,7 +527,7 @@ function FileDiffCard({
   const options = useMemo(
     () => ({
       theme: { dark: "github-dark" as const, light: "github-light" as const },
-      themeType: "dark" as const,
+      themeType: "system" as const,
       diffStyle,
       lineHoverHighlight: "number" as const,
       enableLineSelection: true,

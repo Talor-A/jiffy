@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light dark;
   --bg: #0d1117;
   --panel: #161b22;
   --panel-raised: #1c2128;
@@ -9,10 +10,35 @@
   --green: #3fb950;
   --orange: #d29922;
   --red: #f85149;
+  --purple: #d2a8ff;
+  --primary-bg: #1f6feb;
+  --primary-bg-hover: #388bfd;
+  --overlay: rgba(1, 4, 9, 0.7);
+  --shadow: rgba(1, 4, 9, 0.55);
   --font-ui:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --font-mono:
     ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #ffffff;
+    --panel: #f6f8fa;
+    --panel-raised: #ffffff;
+    --border: #d0d7de;
+    --text: #1f2328;
+    --text-dim: #59636e;
+    --accent: #0969da;
+    --green: #1a7f37;
+    --orange: #9a6700;
+    --red: #cf222e;
+    --purple: #8250df;
+    --primary-bg: #0969da;
+    --primary-bg-hover: #0860ca;
+    --overlay: rgba(31, 35, 40, 0.5);
+    --shadow: rgba(31, 35, 40, 0.2);
+  }
 }
 
 * {
@@ -62,12 +88,12 @@ button:disabled {
   cursor: default;
 }
 button.primary {
-  background: #1f6feb;
-  border-color: #1f6feb;
+  background: var(--primary-bg);
+  border-color: var(--primary-bg);
   color: #fff;
 }
 button.primary:hover:not(:disabled) {
-  background: #388bfd;
+  background: var(--primary-bg-hover);
 }
 button.ghost {
   background: transparent;
@@ -143,14 +169,14 @@ button.danger {
   margin-top: 6px;
 }
 .badge-unpushed {
-  background: rgba(210, 153, 34, 0.15);
+  background: color-mix(in srgb, var(--orange) 16%, transparent);
   color: var(--orange);
-  border: 1px solid rgba(210, 153, 34, 0.4);
+  border: 1px solid color-mix(in srgb, var(--orange) 45%, transparent);
 }
 .badge-comments {
-  background: rgba(88, 166, 255, 0.15);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
   color: var(--accent);
-  border: 1px solid rgba(88, 166, 255, 0.4);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
   margin: 0 0 0 6px;
 }
 
@@ -211,7 +237,7 @@ button.danger {
   user-select: none;
 }
 .segment-header:hover {
-  background: rgba(88, 166, 255, 0.06);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 .segment-name {
   font-family: var(--font-mono);
@@ -264,10 +290,10 @@ button.danger {
   user-select: none;
 }
 .change:hover {
-  background: rgba(88, 166, 255, 0.06);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 .change.active {
-  background: rgba(88, 166, 255, 0.12);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 /* jj-log-style ids: unique prefix bright, the rest dimmed. */
 .id-badge {
@@ -276,7 +302,7 @@ button.danger {
   flex-shrink: 0;
 }
 .id-change .id-prefix {
-  color: #d2a8ff;
+  color: var(--purple);
   font-weight: 700;
 }
 .id-commit .id-prefix {
@@ -325,8 +351,8 @@ button.danger {
 /* ------------------------------------------------------------ diff panel */
 
 .error-banner {
-  background: rgba(248, 81, 73, 0.12);
-  border-bottom: 1px solid rgba(248, 81, 73, 0.5);
+  background: color-mix(in srgb, var(--red) 14%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--red) 50%, transparent);
   color: var(--red);
   padding: 8px 16px;
   font-family: var(--font-mono);
@@ -501,7 +527,7 @@ button.danger {
   background: var(--panel-raised);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 24px var(--shadow);
   padding: 4px;
   display: flex;
   flex-direction: column;
@@ -518,7 +544,7 @@ button.danger {
   border-radius: 5px;
 }
 .context-menu-item:hover {
-  background: rgba(88, 166, 255, 0.12);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
   border: none;
 }
 .context-menu-value {
@@ -564,7 +590,7 @@ button.danger {
   position: fixed;
   inset: 0;
   z-index: 900;
-  background: rgba(1, 4, 9, 0.7);
+  background: var(--overlay);
   display: grid;
   place-items: center;
 }
