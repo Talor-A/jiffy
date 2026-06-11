@@ -6,9 +6,13 @@ import { CommentStore, exportMarkdown } from "./comments";
 import { fetchGithubContext } from "./github";
 import { assembleStack } from "./stack";
 import {
+  ActionRequestSchema,
   CommentInputSchema,
   CommentPatchSchema,
   DiffRequestSchema,
+  type ActionRequest,
+  type ChangeInfo,
+  type DiffEndpoint,
   type DiffResponse,
   type GithubContext,
   type RepoInfo,
@@ -62,14 +66,21 @@ export class RepoWatcher {
     }
     if (this.lastOpId !== null && opId !== this.lastOpId) {
       this.broadcast("repo-changed");
+    } else {
+      // SSE comment ping so Bun's idleTimeout (10s) never reaps a quiet
+      // stream; a reaped stream can miss a broadcast while reconnecting.
+      this.send(new TextEncoder().encode(`: ka\n\n`));
     }
     this.lastOpId = opId;
   }
 
   broadcast(type: string): void {
-    const payload = new TextEncoder().encode(
-      `data: ${JSON.stringify({ type })}\n\n`,
+    this.send(
+      new TextEncoder().encode(`data: ${JSON.stringify({ type })}\n\n`),
     );
+  }
+
+  private send(payload: Uint8Array): void {
     for (const client of this.clients) {
       try {
         client.enqueue(payload);
@@ -161,6 +172,24 @@ export function createServer(
       bookmarkRows,
       pullRequests: gh?.pullRequests ?? [],
     });
+  };
+
+  /**
+   * Dispatch one validated jj action; returns an error string (→ 400) or
+   * null on success. New actions slot in as additional cases.
+   */
+  const dispatchAction = async (
+    input: ActionRequest,
+  ): Promise<string | null> => {
+    switch (input.action) {
+      case "describe": {
+        const change = await jj.resolve(input.changeId);
+        if (!change) return `no revision matches: ${input.changeId}`;
+        if (change.immutable) return "cannot describe an immutable change";
+        await jj.describe(change.changeId, input.message);
+        return null;
+      }
+    }
   };
 
   const apiRoutes = {
@@ -289,6 +318,16 @@ export function createServer(
         }),
       },
 
+      "/api/actions": {
+        POST: api(async (req) => {
+          const input = ActionRequestSchema.parse(await req.json());
+          const error = await dispatchAction(input);
+          if (error) return json({ error }, 400);
+          watcher.broadcast("repo-changed");
+          return json({ ok: true });
+        }),
+      },
+
       "/api/refresh": {
         POST: api(async () => {
           await jj.snapshot();
@@ -324,24 +363,13 @@ export function createServer(
   return { server, watcher };
 }
 
-function pickEndpoint(change: {
-  changeId: string;
-  changeIdPrefix: string;
-  commitId: string;
-  commitIdPrefix: string;
-  description: string;
-}): {
-  changeId: string;
-  changeIdPrefix: string;
-  commitId: string;
-  commitIdPrefix: string;
-  description: string;
-} {
+function pickEndpoint(change: ChangeInfo): DiffEndpoint {
   return {
     changeId: change.changeId,
     changeIdPrefix: change.changeIdPrefix,
     commitId: change.commitId,
     commitIdPrefix: change.commitIdPrefix,
     description: change.description,
+    immutable: change.immutable,
   };
 }

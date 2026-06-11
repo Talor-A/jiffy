@@ -108,6 +108,44 @@ describe("exportMarkdown", () => {
     expect(md).toContain("  > line note");
   });
 
+  test("range comments render line spans with multiline snippets", () => {
+    const md = exportMarkdown([
+      {
+        ...base,
+        ...input({
+          file: "src/a.ts",
+          line: 4,
+          text: "extract this block",
+          codeLine: "const a = 1;\nconst b = 2;\nconst c = 3;",
+        }),
+        endLine: 9,
+      },
+    ]);
+
+    expect(md).toContain("- **src/a.ts:4-9**");
+    // Each snippet line sits inside the fence, indented two spaces.
+    expect(md).toContain(
+      "  ```\n  const a = 1;\n  const b = 2;\n  const c = 3;\n  ```",
+    );
+    expect(md).toContain("  > extract this block");
+  });
+
+  test("deletions-side range uses plural removed wording", () => {
+    const md = exportMarkdown([
+      {
+        ...base,
+        ...input({
+          line: 2,
+          side: "deletions",
+          codeLine: null,
+          text: "why remove these?",
+        }),
+        endLine: 5,
+      },
+    ]);
+    expect(md).toContain("- **src/app.ts:2-5 (removed lines)**");
+  });
+
   test("empty input produces a friendly message", () => {
     expect(exportMarkdown([])).toBe("No review comments.\n");
   });

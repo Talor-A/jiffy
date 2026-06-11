@@ -460,6 +460,16 @@ button.danger {
   white-space: pre-wrap;
   line-height: 1.45;
 }
+.range-chip {
+  display: inline-block;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 5px;
+  margin-bottom: 4px;
+}
 .comment-input {
   width: 100%;
   min-height: 64px;
@@ -523,6 +533,29 @@ button.danger {
 
 .endpoint-summary {
   color: var(--text-dim);
+}
+.endpoint-summary.placeholder {
+  font-style: italic;
+  opacity: 0.7;
+}
+/* Double-click-to-describe targets in the diff header. */
+.describable {
+  cursor: text;
+}
+
+/* ------------------------------------------------- inline describe editor */
+
+.describe-editor {
+  /* Fixed width: the parent .diff-title is content-sized, so percentages
+     would collapse to the textarea's minimum. */
+  width: 480px;
+  max-width: 60vw;
+  padding: 4px 0;
+}
+.describe-editor .comment-input {
+  min-height: 48px;
+  font-family: var(--font-mono);
+  font-size: 12px;
 }
 
 /* ----------------------------------------------------------------- modal */

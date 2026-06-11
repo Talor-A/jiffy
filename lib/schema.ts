@@ -158,6 +158,7 @@ export const DiffEndpointSchema = z.object({
   commitId: z.string(),
   commitIdPrefix: z.string(),
   description: z.string(),
+  immutable: z.boolean(),
 });
 export type DiffEndpoint = z.infer<typeof DiffEndpointSchema>;
 
@@ -192,7 +193,14 @@ export const CommentSchema = z.object({
   side: CommentSideSchema,
   /** 1-based line number in the old (deletions) or new (additions) file. */
   line: z.number().int().positive(),
-  /** Source text of the commented line, captured for export context. */
+  /**
+   * Inclusive last line of a range comment, on the same side as `line`.
+   * Present only for ranges; invariant line < endLine (the client normalizes
+   * drag direction before submitting).
+   */
+  endLine: z.number().int().positive().optional(),
+  /** Source text of the commented line(s), captured for export context.
+   * Multiline (newline-joined, possibly truncated) for range comments. */
   codeLine: z.string().nullable(),
   text: z.string().min(1),
   createdAt: z.string(),
@@ -215,6 +223,23 @@ export const ExportResponseSchema = z.object({
   markdown: z.string(),
   count: z.number().int(),
 });
+
+// ---------------------------------------------------------------------------
+// API: /api/actions
+// ---------------------------------------------------------------------------
+
+/**
+ * A jj mutation requested by the client. Discriminated on `action`; the
+ * union grows as more jj actions (squash, abandon, …) are added.
+ */
+export const ActionRequestSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("describe"),
+    changeId: z.string().min(1),
+    message: z.string().min(1),
+  }),
+]);
+export type ActionRequest = z.infer<typeof ActionRequestSchema>;
 
 // ---------------------------------------------------------------------------
 // API: misc

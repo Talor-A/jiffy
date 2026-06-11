@@ -19,7 +19,10 @@ page.on("console", (msg) => {
 });
 page.on("pageerror", (err) => errors.push(`pageerror: ${err.message}`));
 
-await page.goto(url, { waitUntil: "networkidle" });
+// Not networkidle: the SSE keepalive pings every 2s, so the network never
+// goes idle.
+await page.goto(url, { waitUntil: "domcontentloaded" });
+await page.waitForSelector(".diff-header", { timeout: 15000 });
 await page.waitForTimeout(1500); // let diffs highlight
 await page.screenshot({ path: "/tmp/jiffy-home.png" });
 

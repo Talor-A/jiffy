@@ -168,11 +168,114 @@ describe("comments API", () => {
     expect(afterDelete.comments.map((c) => c.id)).not.toContain(created.id);
   });
 
+  test("range comment round-trips endLine and exports a span", async () => {
+    const createRes = await fetch(url("/api/comments"), {
+      method: "POST",
+      body: JSON.stringify({
+        specKey: "wc",
+        specLabel: "Working copy",
+        file: "b.txt",
+        side: "additions",
+        line: 1,
+        endLine: 3,
+        codeLine: "bravo\ncharlie\ndelta",
+        text: "tighten this block",
+      }),
+    });
+    expect(createRes.status).toBe(201);
+    const created = CommentSchema.parse(await createRes.json());
+    expect(created.endLine).toBe(3);
+
+    const list = CommentListResponseSchema.parse(
+      await (await fetch(url("/api/comments?specKey=wc"))).json(),
+    );
+    expect(list.comments.find((c) => c.id === created.id)?.endLine).toBe(3);
+
+    const exported = ExportResponseSchema.parse(
+      await (await fetch(url("/api/export"))).json(),
+    );
+    expect(exported.markdown).toContain("b.txt:1-3");
+    expect(exported.markdown).toContain("  bravo\n  charlie\n  delta");
+
+    const deleteRes = await fetch(url(`/api/comments/${created.id}`), {
+      method: "DELETE",
+    });
+    expect(deleteRes.status).toBe(200);
+  });
+
   test("rejects malformed comment input", async () => {
     const res = await fetch(url("/api/comments"), {
       method: "POST",
       body: JSON.stringify({ file: "x", text: "" }),
     });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("/api/actions", () => {
+  const post = (body: unknown) =>
+    fetch(url("/api/actions"), { method: "POST", body: JSON.stringify(body) });
+
+  test("describe updates a change's description", async () => {
+    // Resolve feat-a to its change id via the diff endpoint.
+    const before = DiffResponseSchema.parse(
+      await (await fetch(url("/api/diff?change=feat-a"))).json(),
+    );
+    const changeId = before.change!.changeId;
+    expect(before.change!.immutable).toBe(false);
+
+    const res = await post({
+      action: "describe",
+      changeId,
+      message: "feat-a: add alpha (edited)",
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+
+    const stack = StackViewSchema.parse(
+      await (await fetch(url("/api/stack"))).json(),
+    );
+    const featA = stack.segments.find((s) => s.name === "feat-a")!;
+    expect(featA.changes[0]!.description).toStartWith(
+      "feat-a: add alpha (edited)",
+    );
+
+    // Restore the original description so other tests' fixtures hold.
+    const restore = await post({
+      action: "describe",
+      changeId,
+      message: "feat-a: add alpha",
+    });
+    expect(restore.status).toBe(200);
+  });
+
+  test("rejects describing an immutable change", async () => {
+    const res = await post({
+      action: "describe",
+      changeId: "main",
+      message: "rewrite trunk",
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toContain("immutable");
+  });
+
+  test("rejects an unresolvable change", async () => {
+    const res = await post({
+      action: "describe",
+      changeId: "none()",
+      message: "ghost",
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("rejects an empty message", async () => {
+    const res = await post({ action: "describe", changeId: "@", message: "" });
+    expect(res.status).toBe(400);
+  });
+
+  test("rejects an unknown action", async () => {
+    const res = await post({ action: "explode", changeId: "@" });
     expect(res.status).toBe(400);
   });
 });

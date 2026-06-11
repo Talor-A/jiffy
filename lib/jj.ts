@@ -147,6 +147,13 @@ export class Jj {
     });
   }
 
+  /** Set a change's description (snapshots so describing `@` keeps edits). */
+  async describe(changeId: string, message: string): Promise<void> {
+    await this.run(["describe", "-r", changeId, "-m", message], {
+      snapshot: true,
+    });
+  }
+
   /** Snapshot the working copy so subsequent reads see live file edits. */
   async snapshot(): Promise<void> {
     await this.run(["log", "-r", "@", "-n", "1", "-T", "change_id"], {

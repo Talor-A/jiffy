@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { parsePatchFiles, type FileDiffMetadata } from "@pierre/diffs";
+import {
+  parsePatchFiles,
+  type FileDiffMetadata,
+  type SelectedLineRange,
+} from "@pierre/diffs";
 import {
   FileDiff,
   Virtualizer,
@@ -18,6 +22,7 @@ import {
   clearComments,
   deleteComment,
   exportFeedback,
+  runAction,
   updateComment,
   type DiffSpec,
 } from "./api";
@@ -31,7 +36,66 @@ interface Draft {
   file: string;
   side: CommentSide;
   line: number;
+  /** Inclusive range end; set only when the draft spans multiple lines. */
+  endLine?: number;
   codeLine: string | null;
+}
+
+/** Target of the inline header describe editor. */
+interface DescribeTarget {
+  changeId: string;
+  /** Full current description, prefilled into the editor. */
+  description: string;
+}
+
+/**
+ * Source text for a display line number (1-based, per side), resolved through
+ * the hunk that contains it: hunk `*Start`/`*Count` give the display range and
+ * `*LineIndex` points at the matching slot in the file's `additionLines` /
+ * `deletionLines`. Null for lines outside every hunk (collapsed context).
+ */
+function lineTextFor(
+  file: FileDiffMetadata,
+  side: CommentSide,
+  line: number,
+): string | null {
+  const adds = side === "additions";
+  for (const hunk of file.hunks) {
+    const start = adds ? hunk.additionStart : hunk.deletionStart;
+    const count = adds ? hunk.additionCount : hunk.deletionCount;
+    if (line < start || line >= start + count) continue;
+    const index = adds ? hunk.additionLineIndex : hunk.deletionLineIndex;
+    const text = (adds ? file.additionLines : file.deletionLines)[
+      index + (line - start)
+    ];
+    // Parsed lines keep their terminator; drop it so snippets join cleanly.
+    return text?.replace(/\r?\n$/, "") ?? null;
+  }
+  return null;
+}
+
+/** Cap range snippets so exports stay readable for big drags. */
+const SNIPPET_MAX_LINES = 8;
+
+/**
+ * Code context for a comment spanning display lines lo..hi (inclusive):
+ * newline-joined, capped at {@link SNIPPET_MAX_LINES} with a trailing "…"
+ * line when truncated. Lines missing from the patch render as "…".
+ */
+function snippetFor(
+  file: FileDiffMetadata,
+  side: CommentSide,
+  lo: number,
+  hi: number,
+): string | null {
+  if (hi <= lo) return lineTextFor(file, side, lo);
+  const cap = Math.min(hi, lo + SNIPPET_MAX_LINES - 1);
+  const lines: string[] = [];
+  for (let n = lo; n <= cap; n++) {
+    lines.push(lineTextFor(file, side, n) ?? "…");
+  }
+  if (cap < hi) lines.push("…");
+  return lines.join("\n");
 }
 
 export function DiffViewer({
@@ -53,6 +117,7 @@ export function DiffViewer({
   openMenu: OpenMenu;
 }) {
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [describing, setDescribing] = useState<DescribeTarget | null>(null);
   const [diffStyle, setDiffStyle] = useState<"unified" | "split">("unified");
   const [treeOpen, setTreeOpen] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -63,24 +128,19 @@ export function DiffViewer({
     [diff.patch],
   );
 
-  // Close any draft when switching views.
+  // Close any open editor when switching views.
   useEffect(() => {
     setDraft(null);
-    onEditingChanged(false);
-  }, [spec.key, onEditingChanged]);
+    setDescribing(null);
+  }, [spec.key]);
 
-  const openDraft = useCallback(
-    (d: Draft) => {
-      setDraft(d);
-      onEditingChanged(true);
-    },
-    [onEditingChanged],
-  );
+  // Either open editor defers diff refetches (see App.setEditing).
+  useEffect(() => {
+    onEditingChanged(draft !== null || describing !== null);
+  }, [draft, describing, onEditingChanged]);
 
-  const closeDraft = useCallback(() => {
-    setDraft(null);
-    onEditingChanged(false);
-  }, [onEditingChanged]);
+  const openDraft = useCallback((d: Draft) => setDraft(d), []);
+  const closeDraft = useCallback(() => setDraft(null), []);
 
   const saveDraft = useCallback(
     async (text: string) => {
@@ -91,6 +151,7 @@ export function DiffViewer({
         file: draft.file,
         side: draft.side,
         line: draft.line,
+        endLine: draft.endLine,
         codeLine: draft.codeLine,
         text,
       });
@@ -123,10 +184,42 @@ export function DiffViewer({
     <div className="diff-viewer">
       <header className="diff-header">
         <div className="diff-title">
-          <span className="diff-label" title={spec.label}>
-            {spec.label}
-          </span>
-          <DiffEndpoints diff={diff} specLabel={spec.label} />
+          {describing ? (
+            <DescribeEditor
+              key={describing.changeId}
+              target={describing}
+              onClose={() => setDescribing(null)}
+            />
+          ) : (
+            <>
+              {/* In change mode the endpoint summary is suppressed when it
+                  repeats the label, so the label itself is the edit target. */}
+              {diff.change && !diff.change.immutable ? (
+                <span
+                  className="diff-label describable"
+                  title="double-click to edit description"
+                  onDoubleClick={() => {
+                    const c = diff.change!;
+                    setDescribing({
+                      changeId: c.changeId,
+                      description: c.description,
+                    });
+                  }}
+                >
+                  {spec.label}
+                </span>
+              ) : (
+                <span className="diff-label" title={spec.label}>
+                  {spec.label}
+                </span>
+              )}
+              <DiffEndpoints
+                diff={diff}
+                specLabel={spec.label}
+                onDescribe={setDescribing}
+              />
+            </>
+          )}
         </div>
         <div className="diff-meta">
           <span className="stat">
@@ -207,20 +300,55 @@ function summaryOf(endpoint: DiffEndpoint): string {
 
 /**
  * One diff endpoint: its summary line (skipped when it just repeats the
- * view label) plus the prefix-highlighted change id.
+ * view label) plus the prefix-highlighted change id. Mutable endpoints are
+ * double-clickable to edit the description; undescribed ones render a
+ * placeholder so there's a click target.
  */
 function Endpoint({
   endpoint,
   specLabel,
+  onDescribe,
 }: {
   endpoint: DiffEndpoint;
   specLabel?: string;
+  onDescribe: (target: DescribeTarget) => void;
 }) {
   const summary = summaryOf(endpoint);
+  const describable = !endpoint.immutable;
+  const editProps = describable
+    ? {
+        title: "double-click to edit description",
+        onDoubleClick: () =>
+          onDescribe({
+            changeId: endpoint.changeId,
+            description: endpoint.description,
+          }),
+      }
+    : {};
   return (
     <span className="endpoint">
-      {summary && summary !== specLabel && (
-        <span className="endpoint-summary">{summary} </span>
+      {summary ? (
+        summary !== specLabel && (
+          <span
+            className={
+              describable ? "endpoint-summary describable" : "endpoint-summary"
+            }
+            {...editProps}
+          >
+            {summary}{" "}
+          </span>
+        )
+      ) : (
+        <span
+          className={
+            describable
+              ? "endpoint-summary placeholder describable"
+              : "endpoint-summary placeholder"
+          }
+          {...editProps}
+        >
+          (no description){" "}
+        </span>
       )}
       <ChangeId id={endpoint.changeId} prefix={endpoint.changeIdPrefix} />
     </span>
@@ -230,27 +358,99 @@ function Endpoint({
 function DiffEndpoints({
   diff,
   specLabel,
+  onDescribe,
 }: {
   diff: DiffResponse;
   specLabel: string;
+  onDescribe: (target: DescribeTarget) => void;
 }) {
   if (diff.change) {
     return (
       <span className="endpoints">
-        <Endpoint endpoint={diff.change} specLabel={specLabel} />
+        <Endpoint
+          endpoint={diff.change}
+          specLabel={specLabel}
+          onDescribe={onDescribe}
+        />
       </span>
     );
   }
   if (diff.from && diff.to) {
     return (
       <span className="endpoints">
-        <Endpoint endpoint={diff.from} specLabel={specLabel} />
+        <Endpoint
+          endpoint={diff.from}
+          specLabel={specLabel}
+          onDescribe={onDescribe}
+        />
         {" → "}
-        <Endpoint endpoint={diff.to} specLabel={specLabel} />
+        <Endpoint
+          endpoint={diff.to}
+          specLabel={specLabel}
+          onDescribe={onDescribe}
+        />
       </span>
     );
   }
   return null;
+}
+
+/**
+ * Inline editor for a change description, shown in place of the diff title.
+ * Saves via the actions API; the SSE-driven refetch repaints the header.
+ */
+function DescribeEditor({
+  target,
+  onClose,
+}: {
+  target: DescribeTarget;
+  onClose: () => void;
+}) {
+  const [text, setText] = useState(target.description);
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (text.trim().length === 0) return;
+    setSaving(true);
+    try {
+      await runAction({
+        action: "describe",
+        changeId: target.changeId,
+        message: text,
+      });
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="describe-editor">
+      <textarea
+        className="comment-input"
+        placeholder="Describe this change… (⌘⏎ to save)"
+        value={text}
+        autoFocus
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void save();
+          if (e.key === "Escape") onClose();
+        }}
+      />
+      <div className="comment-actions">
+        <button
+          className="primary"
+          disabled={saving || text.trim().length === 0}
+          onClick={() => void save()}
+        >
+          save
+        </button>
+        <button className="ghost" onClick={onClose}>
+          cancel
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function fileStats(files: FileDiffMetadata[]): {
@@ -293,9 +493,11 @@ function FileDiffCard({
 }) {
   const annotations = useMemo(() => {
     const result: DiffLineAnnotation<AnnoMeta>[] = [];
+    // Range comments anchor at their END line (annotations render below
+    // their line, so the thread sits under the whole range).
     const grouped = new Map<string, Comment[]>();
     for (const c of comments) {
-      const key = `${c.side}:${c.line}`;
+      const key = `${c.side}:${c.endLine ?? c.line}`;
       grouped.set(key, [...(grouped.get(key) ?? []), c]);
     }
     for (const group of grouped.values()) {
@@ -304,17 +506,17 @@ function FileDiffCard({
       // thread instead of as a second annotation.
       result.push({
         side: first.side,
-        lineNumber: first.line,
+        lineNumber: first.endLine ?? first.line,
         metadata: { kind: "thread", comments: group },
       });
     }
     if (
       draft &&
-      !grouped.has(`${draft.side}:${draft.line}`)
+      !grouped.has(`${draft.side}:${draft.endLine ?? draft.line}`)
     ) {
       result.push({
         side: draft.side,
-        lineNumber: draft.line,
+        lineNumber: draft.endLine ?? draft.line,
         metadata: { kind: "draft" },
       });
     }
@@ -328,6 +530,8 @@ function FileDiffCard({
       themeType: "dark" as const,
       diffStyle,
       lineHoverHighlight: "number" as const,
+      enableLineSelection: true,
+      enableGutterUtility: true,
       onLineNumberClick: ({
         lineNumber,
         annotationSide,
@@ -341,11 +545,33 @@ function FileDiffCard({
           file: fileName,
           side: annotationSide,
           line: lineNumber,
-          codeLine: lineElement.textContent ?? null,
+          codeLine:
+            lineTextFor(file, annotationSide, lineNumber) ??
+            lineElement.textContent ??
+            null,
+        });
+      },
+      onGutterUtilityClick: (range: SelectedLineRange) => {
+        // `start` is the drag anchor and may sit below `end`.
+        let lo = Math.min(range.start, range.end);
+        let hi = Math.max(range.start, range.end);
+        let side: CommentSide = range.side ?? "additions";
+        // A split-view drag across columns has no coherent line range;
+        // degrade to a single-line comment where the drag ended.
+        if (range.side && range.endSide && range.side !== range.endSide) {
+          side = range.endSide;
+          lo = hi = range.end;
+        }
+        onOpenDraft({
+          file: fileName,
+          side,
+          line: lo,
+          endLine: hi > lo ? hi : undefined,
+          codeLine: snippetFor(file, side, lo, hi),
         });
       },
     }),
-    [fileName, diffStyle, onOpenDraft],
+    [file, fileName, diffStyle, onOpenDraft],
   );
 
   const renderAnnotation = useCallback(
@@ -355,7 +581,7 @@ function FileDiffCard({
       const lineDraft =
         draft &&
         draft.side === annotation.side &&
-        draft.line === annotation.lineNumber
+        (draft.endLine ?? draft.line) === annotation.lineNumber
           ? draft
           : null;
       return (
@@ -479,6 +705,11 @@ function CommentCard({
 
   return (
     <div className="comment-card">
+      {comment.endLine && (
+        <span className="range-chip">
+          lines {comment.line}–{comment.endLine}
+        </span>
+      )}
       <div className="comment-text">{comment.text}</div>
       <div className="comment-actions">
         <button className="ghost" onClick={() => setEditing(true)}>

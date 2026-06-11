@@ -115,13 +115,18 @@ export function exportMarkdown(
     lines.push(`## ${file}`, "");
     const sorted = [...fileComments].sort((a, b) => a.line - b.line);
     for (const c of sorted) {
+      const ref = c.endLine ? `${file}:${c.line}-${c.endLine}` : `${file}:${c.line}`;
       const where =
         c.side === "deletions"
-          ? `${file}:${c.line} (removed line)`
-          : `${file}:${c.line}`;
+          ? `${ref} (removed ${c.endLine ? "lines" : "line"})`
+          : ref;
       lines.push(`- **${where}**`);
       if (c.codeLine !== null && c.codeLine.trim() !== "") {
-        lines.push(`  \`\`\``, `  ${c.codeLine}`, `  \`\`\``);
+        lines.push(`  \`\`\``);
+        for (const codeLine of c.codeLine.split("\n")) {
+          lines.push(`  ${codeLine}`);
+        }
+        lines.push(`  \`\`\``);
       }
       for (const textLine of c.text.split("\n")) {
         lines.push(`  > ${textLine}`);

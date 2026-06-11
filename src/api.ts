@@ -5,8 +5,10 @@ import {
   CommentSchema,
   DiffResponseSchema,
   ExportResponseSchema,
+  OkResponseSchema,
   RepoInfoSchema,
   StackViewSchema,
+  type ActionRequest,
   type Comment,
   type CommentInput,
   type DiffRequest,
@@ -95,6 +97,14 @@ export async function clearComments(specKey?: string): Promise<void> {
   const search = specKey ? `?specKey=${encodeURIComponent(specKey)}` : "";
   const res = await fetch(`/api/comments${search}`, { method: "DELETE" });
   if (!res.ok) throw new Error(`failed to clear comments (${res.status})`);
+}
+
+/** Run a jj action (e.g. describe) on the server. */
+export function runAction(input: ActionRequest): Promise<{ ok: true }> {
+  return request(OkResponseSchema, "/api/actions", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function refreshRepo(): Promise<void> {
