@@ -22,6 +22,7 @@ import {
 import { DiffViewer } from "./DiffViewer";
 import { ChangeId } from "./ChangeId";
 import { useContextMenu, type MenuItem, type OpenMenu } from "./ContextMenu";
+import { HelpModal } from "./HelpModal";
 
 export function App() {
   const [repo, setRepo] = useState<RepoInfo | null>(null);
@@ -31,6 +32,7 @@ export function App() {
   const [diffError, setDiffError] = useState<string | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [helpOpen, setHelpOpen] = useState(false);
   const { menu, open: openMenu } = useContextMenu();
 
   // While a comment draft is open we don't clobber the diff under the
@@ -110,6 +112,13 @@ export function App() {
       <aside className="sidebar">
         <header className="repo-header">
           <h1>jiffy</h1>
+          <button
+            className="ghost help-button"
+            title="what is this?"
+            onClick={() => setHelpOpen(true)}
+          >
+            ?
+          </button>
           {repo && (
             <div className="repo-name" title={repo.root}>
               {repo.github ? (
@@ -173,6 +182,7 @@ export function App() {
         )}
       </main>
       {menu}
+      {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
     </div>
   );
 }

@@ -111,6 +111,17 @@ button.danger {
 .repo-header {
   padding: 14px 16px 10px;
   border-bottom: 1px solid var(--border);
+  user-select: none;
+  position: relative;
+}
+.help-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  padding: 2px 0;
+  border-radius: 50%;
+  color: var(--text-dim);
 }
 .repo-header h1 {
   margin: 0 0 2px;
@@ -151,6 +162,7 @@ button.danger {
 }
 .quick {
   flex: 1;
+  user-select: none;
 }
 .quick.active {
   border-color: var(--accent);
@@ -169,6 +181,7 @@ button.danger {
   letter-spacing: 0.08em;
   color: var(--text-dim);
   padding: 0 4px 8px;
+  user-select: none;
 }
 .stack-empty {
   color: var(--text-dim);
@@ -193,6 +206,9 @@ button.danger {
   padding: 8px 10px;
   cursor: pointer;
   border-bottom: 1px solid var(--border);
+  /* Right-clickable: a stray drag during right-mouse-down must not create a
+     text selection, or the browser menu replaces ours. */
+  user-select: none;
 }
 .segment-header:hover {
   background: rgba(88, 166, 255, 0.06);
@@ -245,6 +261,7 @@ button.danger {
   gap: 8px;
   padding: 4px 10px;
   cursor: pointer;
+  user-select: none;
 }
 .change:hover {
   background: rgba(88, 166, 255, 0.06);
@@ -294,6 +311,7 @@ button.danger {
   color: var(--text-dim);
   font-family: var(--font-mono);
   font-size: 12px;
+  user-select: none;
 }
 .trunk-icon {
   color: var(--accent);
@@ -351,6 +369,7 @@ button.danger {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  user-select: none;
 }
 .endpoints {
   color: var(--text-dim);
@@ -504,4 +523,73 @@ button.danger {
 
 .endpoint-summary {
   color: var(--text-dim);
+}
+
+/* ----------------------------------------------------------------- modal */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(1, 4, 9, 0.7);
+  display: grid;
+  place-items: center;
+}
+.modal-panel {
+  width: min(640px, calc(100vw - 48px));
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  line-height: 1.5;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.modal-panel h2 {
+  font-size: 15px;
+  margin: 0;
+}
+.modal-panel h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin: 16px 0 6px;
+}
+.modal-panel ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.modal-panel li {
+  margin-bottom: 4px;
+}
+.modal-panel code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+.modal-panel kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--panel-raised);
+  border: 1px solid var(--text-dim);
+  border-radius: 4px;
+  padding: 0 5px;
+}
+.inline-dot {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 3px;
+}
+.inline-chip {
+  vertical-align: middle;
 }
