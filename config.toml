@@ -1,0 +1,12 @@
+# Revset aliases jiffy depends on. Passed to every jj invocation via
+# `--config-file` so jiffy works regardless of the user's own jj config
+# (user config still layers on top for everything else).
+
+[revset-aliases]
+# Changes that cannot be pushed: undescribed, or empty non-merges.
+'unpushable(to)' = '::to & mutable() & (description(exact:"") | (empty() & ~merges()))'
+# The nearest ancestor (or self) that carries a local bookmark.
+'closest_bookmark(to)' = 'heads(::to & bookmarks())'
+# The nearest ancestor (or self) that is ready to push: described, non-empty,
+# and not sitting above an unpushable change.
+'closest_pushable(to)' = 'heads(::to & mutable() & ~description(exact:"") & (~empty() | merges()) & ~(unpushable(to)::))'
