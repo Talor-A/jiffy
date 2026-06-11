@@ -81,12 +81,18 @@ button.danger {
 .app {
   display: grid;
   grid-template-columns: 320px 1fr;
-  height: 100%;
+  /* minmax(0, …) + min-height on the items: grid items otherwise refuse to
+     shrink below their content, which silently disables every inner scroll
+     region below. */
+  grid-template-rows: minmax(0, 1fr);
+  height: 100vh;
+  overflow: hidden;
 }
 
 .sidebar {
   display: flex;
   flex-direction: column;
+  min-height: 0;
   border-right: 1px solid var(--border);
   background: var(--panel);
   overflow-y: auto;
@@ -96,6 +102,7 @@ button.danger {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   height: 100%;
 }
 
@@ -389,10 +396,14 @@ button.danger {
   --trees-fg-override: var(--text);
 }
 
+/* The Virtualizer's outer div: the one true scroll container for diffs. */
 .diff-files {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   overflow-y: auto;
+}
+.diff-files-content {
   padding: 12px 16px 60vh;
   display: flex;
   flex-direction: column;

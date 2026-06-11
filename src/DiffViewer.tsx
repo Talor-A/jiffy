@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { parsePatchFiles, type FileDiffMetadata } from "@pierre/diffs";
-import { FileDiff, type DiffLineAnnotation } from "@pierre/diffs/react";
+import {
+  FileDiff,
+  Virtualizer,
+  type DiffLineAnnotation,
+} from "@pierre/diffs/react";
 import type {
   Comment,
   CommentSide,
@@ -168,7 +172,10 @@ export function DiffViewer({
           {treeOpen && (
             <FileTreePanel files={files} onSelectFile={scrollToFile} />
           )}
-          <div className="diff-files">
+          <Virtualizer
+            className="diff-files"
+            contentClassName="diff-files-content"
+          >
             {files.map((file) => (
               <FileDiffCard
                 key={file.name}
@@ -187,7 +194,7 @@ export function DiffViewer({
                 }}
               />
             ))}
-          </div>
+          </Virtualizer>
         </div>
       )}
     </div>

@@ -69,6 +69,13 @@ export function render(input: string, options: RenderOptions = {}): string {
 }
 `,
 );
+// A bulky generated file so the diff view actually has to scroll.
+const bigLines = Array.from({ length: 400 }, (_, i) =>
+  i % 20 === 0
+    ? `// section ${i / 20}: generated fixtures`
+    : `export const fixture_${i} = { id: ${i}, label: "row ${i}", enabled: ${i % 3 === 0} };`,
+);
+await repo.write("src/fixtures.ts", bigLines.join("\n") + "\n");
 await repo.describe("render: configurable bullets (wip)");
 await repo.jjRaw(["new"]);
 await repo.write("src/cli.ts", `console.log("TODO: wire up CLI");\n`);
