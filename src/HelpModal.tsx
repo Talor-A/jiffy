@@ -1,14 +1,4 @@
-import { useEffect } from "react";
-
 export function HelpModal({ onClose }: { onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
@@ -74,6 +64,26 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
               <b>copy feedback</b> exports everything as markdown with
               <code>file:line</code> references and the commented source —
               paste it straight to your agent.
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h3>Command palette</h3>
+          <ul>
+            <li>
+              Press <kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd> to open commands like
+              refresh, view latest change, view working copy, or open this
+              help.
+            </li>
+            <li>
+              Shortcuts pause while a comment or description draft is open,
+              another modal is open, a context menu is open, or focus is inside
+              text input.
+            </li>
+            <li>
+              <kbd>Esc</kbd> resolves in order: draft cancel → context menu →
+              command palette → help.
             </li>
           </ul>
         </section>
