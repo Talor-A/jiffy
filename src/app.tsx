@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   Comment,
   DiffResponse,
@@ -21,8 +21,10 @@ import {
 } from "./api";
 import { DiffViewer } from "./DiffViewer";
 import { ChangeId } from "./ChangeId";
+import { CommandPalette, type PaletteAction } from "./CommandPalette";
 import { ContextMenu, copyItem, type MenuItem } from "./ContextMenu";
 import { HelpModal } from "./HelpModal";
+import { useKeyboardShortcuts } from "./keyboard";
 
 export function App() {
   const [repo, setRepo] = useState<RepoInfo | null>(null);
@@ -33,6 +35,7 @@ export function App() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   // While a comment draft is open we don't clobber the diff under the
   // user's cursor; the refetch happens when the draft closes.
@@ -106,6 +109,83 @@ export function App() {
     await loadDiff(spec);
   }, [spec, loadStack, loadDiff]);
 
+  const openPalette = useCallback(() => setPaletteOpen(true), []);
+  const closePalette = useCallback(() => setPaletteOpen(false), []);
+  const closeHelp = useCallback(() => setHelpOpen(false), []);
+
+  useKeyboardShortcuts({
+    editingRef,
+    paletteOpen,
+    helpOpen,
+    onOpenPalette: openPalette,
+    onClosePalette: closePalette,
+    onCloseHelp: closeHelp,
+  });
+
+  const paletteActions = useMemo<PaletteAction[]>(
+    () => [
+      {
+        id: "refresh",
+        label: "Refresh repository",
+        keywords: ["reload", "snapshot", "jj"],
+        run: handleRefresh,
+      },
+      {
+        id: "latest-change",
+        label: "View latest change",
+        keywords: ["diff", "pushable"],
+        run: () => setSpec(LATEST_SPEC),
+      },
+      {
+        id: "working-copy",
+        label: "View working copy",
+        keywords: ["diff", "wc", "at"],
+        run: () => setSpec(WC_SPEC),
+      },
+      {
+        id: "open-help",
+        label: "Open help",
+        keywords: ["keyboard", "shortcuts", "docs"],
+        run: () => setHelpOpen(true),
+      },
+      {
+        id: "open-github",
+        label: "Open repository on GitHub",
+        keywords: ["repo", "remote", "browser"],
+        detail: repo?.github ? repo.github.nameWithOwner : "No GitHub remote",
+        disabled: !repo?.github,
+        run: () => {
+          if (repo?.github) window.open(repo.github.url, "_blank", "noreferrer");
+        },
+      },
+      {
+        id: "open-pr-url",
+        label: "Open PR by URL",
+        keywords: ["review", "external", "github"],
+        detail: "Coming in #5",
+        disabled: true,
+        run: () => {},
+      },
+      {
+        id: "stack-operations",
+        label: "Stack operations...",
+        keywords: ["commit", "picker", "bookmark"],
+        detail: "Coming in #4",
+        disabled: true,
+        run: () => {},
+      },
+      {
+        id: "launch-agent",
+        label: "Launch agent...",
+        keywords: ["feedback", "comments"],
+        detail: "Planned",
+        disabled: true,
+        run: () => {},
+      },
+    ],
+    [handleRefresh, repo],
+  );
+
   return (
     <div className="app">
       <aside className="sidebar">
@@ -175,6 +255,11 @@ export function App() {
           />
         )}
       </main>
+      <CommandPalette
+        open={paletteOpen}
+        actions={paletteActions}
+        onOpenChange={setPaletteOpen}
+      />
       {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
     </div>
   );
@@ -308,7 +393,10 @@ function SegmentCard({
               : []),
           ];
           return (
-            <ContextMenu key={change.changeId} items={changeMenuItems}>
+            <ContextMenu
+              key={change.changeId}
+              items={changeMenuItems}
+            >
               <li
                 className={activeKey === cs.key ? "change active" : "change"}
                 onClick={() => onSelect(cs)}

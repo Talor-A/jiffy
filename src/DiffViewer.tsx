@@ -74,6 +74,30 @@ function lineTextFor(
   return null;
 }
 
+/**
+ * Ref callback that focuses an annotation textarea with the cursor at the
+ * end. When the editor mounts, Pierre hasn't laid out the annotation row
+ * yet, so an immediate focus() (or React's autoFocus) is a silent no-op on
+ * the not-yet-focusable element. Retry on animation frames until focus
+ * actually takes (bounded, in case the editor unmounts first).
+ */
+function focusWhenConnected(el: HTMLTextAreaElement | null): void {
+  if (!el) return;
+  let attempts = 60;
+  const tryFocus = () => {
+    if (el.isConnected) {
+      el.focus();
+      const root = el.getRootNode() as Document | ShadowRoot;
+      if (root.activeElement === el) {
+        el.setSelectionRange(el.value.length, el.value.length);
+        return;
+      }
+    }
+    if (attempts-- > 0) requestAnimationFrame(tryFocus);
+  };
+  tryFocus();
+}
+
 /** Cap range snippets so exports stay readable for big drags. */
 const SNIPPET_MAX_LINES = 8;
 
@@ -663,9 +687,9 @@ function CommentCard({
     return (
       <div className="comment-card">
         <textarea
+          ref={focusWhenConnected}
           className="comment-input"
           value={text}
-          autoFocus
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -753,10 +777,10 @@ function CommentEditor({
   return (
     <div className="comment-card">
       <textarea
+        ref={focusWhenConnected}
         className="comment-input"
         placeholder="Leave feedback for your agent… (⌘⏎ to save)"
         value={text}
-        autoFocus
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void save();
