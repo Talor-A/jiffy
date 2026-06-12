@@ -77,6 +77,12 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
               help.
             </li>
             <li>
+              Stack operations open a commit picker from the palette. v1
+              supports <code>abandon</code>, <code>absorb</code>, and
+              parent-only <code>squash</code>; interactive split remains a
+              follow-up.
+            </li>
+            <li>
               Shortcuts pause while a comment or description draft is open,
               another modal is open, a context menu is open, or focus is inside
               text input.

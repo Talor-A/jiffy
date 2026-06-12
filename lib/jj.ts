@@ -155,6 +155,40 @@ export class Jj {
     });
   }
 
+  /** Abandon one or more mutable changes, rebasing descendants as jj does. */
+  async abandon(changeIds: string[]): Promise<void> {
+    await this.run(["abandon", ...changeIds], { snapshot: true });
+  }
+
+  /** Move changes from a source revision into mutable ancestors. */
+  async absorb(changeId: string, paths: string[] = []): Promise<void> {
+    await this.run(["absorb", "--from", changeId, ...paths], {
+      snapshot: true,
+    });
+  }
+
+  /**
+   * Squash a revision non-interactively. Without an explicit destination, jj's
+   * `-r` form means "into the source's parent"; `--from` would default the
+   * destination to `@`, which is not the stack operation users expect.
+   */
+  async squash(input: {
+    fromChangeId: string;
+    intoChangeId?: string;
+    message?: string;
+    useDestinationMessage?: boolean;
+  }): Promise<void> {
+    const sourceArgs = input.intoChangeId
+      ? ["--from", input.fromChangeId, "--into", input.intoChangeId]
+      : ["-r", input.fromChangeId];
+    const messageArgs = input.useDestinationMessage
+      ? ["--use-destination-message"]
+      : ["-m", input.message ?? ""];
+    await this.run(["squash", ...sourceArgs, ...messageArgs], {
+      snapshot: true,
+    });
+  }
+
   /** Snapshot the working copy so subsequent reads see live file edits. */
   async snapshot(): Promise<void> {
     await this.run(["log", "-r", "@", "-n", "1", "-T", "change_id"], {

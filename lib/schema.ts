@@ -239,6 +239,22 @@ export const ActionRequestSchema = z.discriminatedUnion("action", [
     changeId: z.string().min(1),
     message: z.string().min(1),
   }),
+  z.object({
+    action: z.literal("abandon"),
+    changeIds: z.array(z.string().min(1)).min(1),
+  }),
+  z.object({
+    action: z.literal("absorb"),
+    changeId: z.string().min(1),
+    paths: z.array(z.string().min(1)).optional(),
+  }),
+  z.object({
+    action: z.literal("squash"),
+    fromChangeId: z.string().min(1),
+    intoChangeId: z.string().min(1).optional(),
+    message: z.string().min(1).optional(),
+    useDestinationMessage: z.boolean().optional(),
+  }),
 ]);
 export type ActionRequest = z.infer<typeof ActionRequestSchema>;
 
