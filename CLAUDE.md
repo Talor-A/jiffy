@@ -44,6 +44,8 @@ For more information, read the Bun API docs in `node_modules/bun-types/docs/**.m
 
 For Base UI components (`@base-ui/react`), read the documentation index at https://base-ui.com/llms.txt before implementing or extending UI primitives.
 
+For cmdk command palette (`cmdk`), read the documentation index at https://mintlify.com/dip/cmdk/llms.txt before implementing or extending the command palette.
+
 ---
 
 # Jiffy — jj Diff Reviewer
@@ -82,7 +84,9 @@ src/
   api.ts              Typed fetch client (imports server schemas)
   ChangeId.tsx        Short change-ID display with prefix highlighting
   ContextMenu.tsx     Base UI context menu (copy, action, separator items)
+  CommandPalette.tsx  cmdk command palette (⌘K actions)
   HelpModal.tsx       Static help dialog
+  keyboardShortcuts.ts Global shortcut guard policy
 config.toml           jj revset aliases for jiffy's queries
 ```
 

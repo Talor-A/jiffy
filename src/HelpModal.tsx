@@ -1,14 +1,4 @@
-import { useEffect } from "react";
-
 export function HelpModal({ onClose }: { onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
@@ -74,6 +64,19 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
               <b>copy feedback</b> exports everything as markdown with
               <code>file:line</code> references and the commented source —
               paste it straight to your agent.
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h3>Keyboard shortcuts</h3>
+          <ul>
+            <li>
+              <kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd> — open command palette
+            </li>
+            <li>
+              <kbd>Esc</kbd> — cancel draft, close menu, close palette, then
+              close help (in that order)
             </li>
           </ul>
         </section>

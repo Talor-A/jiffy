@@ -698,3 +698,78 @@ button.danger {
 .inline-chip {
     vertical-align: middle;
 }
+
+/* ----------------------------------------------------------- cmdk palette */
+
+[cmdk-overlay].cmdk-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 950;
+    background: var(--overlay);
+}
+[cmdk-dialog].cmdk-dialog {
+    position: fixed;
+    top: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 951;
+    width: min(520px, calc(100vw - 48px));
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 16px 48px var(--shadow);
+    overflow: hidden;
+}
+[cmdk-root] {
+    display: flex;
+    flex-direction: column;
+}
+[cmdk-input] {
+    width: 100%;
+    padding: 14px 16px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+    outline: none;
+}
+[cmdk-input]::placeholder {
+    color: var(--text-dim);
+}
+[cmdk-list] {
+    max-height: min(360px, calc(100vh - 200px));
+    overflow-y: auto;
+    padding: 6px;
+}
+[cmdk-empty] {
+    padding: 16px;
+    color: var(--text-dim);
+    font-size: 13px;
+    text-align: center;
+}
+[cmdk-item] {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+    color: var(--text);
+}
+[cmdk-item][data-selected="true"] {
+    background: var(--panel-raised);
+    color: var(--accent);
+}
+[cmdk-item][data-disabled="true"] {
+    opacity: 0.45;
+    cursor: default;
+}
+.cmdk-item-hint {
+    font-size: 11px;
+    color: var(--text-dim);
+}
