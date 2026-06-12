@@ -13,6 +13,16 @@ import type {
  * here so the logic is unit-testable on synthetic data.
  */
 
+const concatLocalAndRemoteBookmarks = (
+  localBookmarks: string[],
+  remoteBookmarks: { name: string; remote: string }[],
+): string[] => {
+  return [
+    ...localBookmarks,
+    ...remoteBookmarks.map((b) => `${b.name}@${b.remote}`),
+  ];
+};
+
 /**
  * Group changes (ordered newest-first, i.e. `@` down to just above trunk)
  * into segments. A change carrying a local bookmark is the head of a new
@@ -42,11 +52,15 @@ export function segmentChanges(changes: ChangeInfo[]): StackSegment[] {
   };
 
   for (const change of changes) {
-    if (change.localBookmarks.length > 0) {
+    const bookmarksAtChange = concatLocalAndRemoteBookmarks(
+      change.localBookmarks,
+      change.remoteBookmarks ?? [],
+    );
+    if (bookmarksAtChange.length > 0) {
       flush();
       acc = [];
-      name = change.localBookmarks[0]!;
-      bookmarks = change.localBookmarks;
+      name = bookmarksAtChange[0]!;
+      bookmarks = bookmarksAtChange;
     }
     acc.push(change);
   }
