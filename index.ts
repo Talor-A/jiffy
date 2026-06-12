@@ -15,9 +15,11 @@ async function main(): Promise<void> {
 
   // Resolve the path before chdir so relative paths work from the invocation CWD.
   const targetPath = resolve(args.path);
-  // Bun's dev bundler computes asset paths relative to CWD; anchor to jiffy's
-  // src/ directory so chunks resolve correctly when run from any path.
-  process.chdir(join(import.meta.dir, "src"));
+  // Bun's dev bundler computes asset paths relative to CWD. Source runs need
+  // src/ as the asset root; bundled runs need the dist/ directory itself.
+  process.chdir(
+    import.meta.path.endsWith(".ts") ? join(import.meta.dir, "src") : import.meta.dir,
+  );
 
   const root = await Jj.findRoot(targetPath);
   if (!root) {
