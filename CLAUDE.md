@@ -42,6 +42,8 @@ Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully suppor
 
 For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
 
+For Base UI components (`@base-ui/react`), read the documentation index at https://base-ui.com/llms.txt before implementing or extending UI primitives.
+
 ---
 
 # Jiffy — jj Diff Reviewer
@@ -79,7 +81,7 @@ src/
   FileTreePanel.tsx   @pierre/trees file tree (git status, +/− counts)
   api.ts              Typed fetch client (imports server schemas)
   ChangeId.tsx        Short change-ID display with prefix highlighting
-  ContextMenu.tsx     Right-click copy-to-clipboard menu
+  ContextMenu.tsx     Base UI context menu (copy, action, separator items)
   HelpModal.tsx       Static help dialog
 config.toml           jj revset aliases for jiffy's queries
 ```
