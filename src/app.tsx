@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   Comment,
   DiffResponse,
@@ -22,7 +22,9 @@ import {
 import { DiffViewer } from "./DiffViewer";
 import { ChangeId } from "./ChangeId";
 import { ContextMenu, copyItem, type MenuItem } from "./ContextMenu";
+import { CommandPalette, type PaletteAction } from "./CommandPalette";
 import { HelpModal } from "./HelpModal";
+import { useGlobalKeyboardShortcuts } from "./keyboardShortcuts";
 
 export function App() {
   const [repo, setRepo] = useState<RepoInfo | null>(null);
@@ -33,6 +35,7 @@ export function App() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   // While a comment draft is open we don't clobber the diff under the
   // user's cursor; the refetch happens when the draft closes.
@@ -106,6 +109,53 @@ export function App() {
     await loadDiff(spec);
   }, [spec, loadStack, loadDiff]);
 
+  const paletteActions = useMemo<PaletteAction[]>(
+    () => [
+      {
+        id: "help",
+        label: "Show help",
+        keywords: ["?", "keyboard", "shortcuts"],
+        run: () => setHelpOpen(true),
+      },
+      {
+        id: "refresh",
+        label: "Refresh repo",
+        keywords: ["reload", "sync"],
+        run: () => void handleRefresh(),
+      },
+      {
+        id: "open-pr-url",
+        label: "Open PR by URL",
+        keywords: ["pr", "github", "review", "external"],
+        disabled: true,
+        run: () => {},
+      },
+      {
+        id: "stack-ops",
+        label: "Stack operations…",
+        keywords: ["squash", "absorb", "commit", "picker"],
+        disabled: true,
+        run: () => {},
+      },
+      {
+        id: "launch-agent",
+        label: "Launch agent…",
+        keywords: ["agent", "cursor"],
+        disabled: true,
+        run: () => {},
+      },
+    ],
+    [handleRefresh],
+  );
+
+  useGlobalKeyboardShortcuts({
+    editingRef,
+    helpOpen,
+    paletteOpen,
+    setHelpOpen,
+    setPaletteOpen,
+  });
+
   return (
     <div className="app">
       <aside className="sidebar">
@@ -176,6 +226,11 @@ export function App() {
         )}
       </main>
       {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        actions={paletteActions}
+      />
     </div>
   );
 }
