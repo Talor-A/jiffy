@@ -351,7 +351,13 @@ export function App() {
         run: handleRefresh,
       },
     ],
-    [handleRefresh, pickableChanges.length, repo, runRepoAction, stack?.hasUnpushedWork],
+    [
+      handleRefresh,
+      pickableChanges.length,
+      repo,
+      runRepoAction,
+      stack?.hasUnpushedWork,
+    ],
   );
 
   return (
@@ -640,8 +646,7 @@ function SegmentCard({
       <ul className="segment-changes">
         {segment.changes.map((change) => {
           const cs = changeSpec(change);
-          const summary =
-            change.description.split("\n", 1)[0]?.trim() || "(no description)";
+          const summary = change.description.split("\n", 1)[0]?.trim() || "";
           const count = commentCounts.get(cs.key) ?? 0;
           const changeMenuItems: MenuItem[] = [
             copyItem("copy change id", change.changeId),
