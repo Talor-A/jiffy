@@ -21,7 +21,7 @@ import {
 } from "./api";
 import { DiffViewer } from "./DiffViewer";
 import { ChangeId } from "./ChangeId";
-import { useContextMenu, type MenuItem, type OpenMenu } from "./ContextMenu";
+import { ContextMenu, copyItem, type MenuItem } from "./ContextMenu";
 import { HelpModal } from "./HelpModal";
 
 export function App() {
@@ -33,7 +33,6 @@ export function App() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [helpOpen, setHelpOpen] = useState(false);
-  const { menu, open: openMenu } = useContextMenu();
 
   // While a comment draft is open we don't clobber the diff under the
   // user's cursor; the refetch happens when the draft closes.
@@ -152,7 +151,6 @@ export function App() {
             activeKey={spec.key}
             commentCounts={countBySpec(comments)}
             onSelect={setSpec}
-            openMenu={openMenu}
           />
         )}
 
@@ -174,11 +172,9 @@ export function App() {
             allCommentCount={comments.length}
             onCommentsChanged={reloadComments}
             onEditingChanged={setEditing}
-            openMenu={openMenu}
           />
         )}
       </main>
-      {menu}
       {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
     </div>
   );
@@ -197,13 +193,11 @@ function StackPanel({
   activeKey,
   commentCounts,
   onSelect,
-  openMenu,
 }: {
   stack: StackView;
   activeKey: string;
   commentCounts: Map<string, number>;
   onSelect: (spec: DiffSpec) => void;
-  openMenu: OpenMenu;
 }) {
   return (
     <div className="stack">
@@ -218,28 +212,20 @@ function StackPanel({
           activeKey={activeKey}
           commentCounts={commentCounts}
           onSelect={onSelect}
-          openMenu={openMenu}
         />
       ))}
-      <div
-        className="trunk-row"
-        title="immutable base"
-        onContextMenu={(e) =>
-          openMenu(e, [
-            { label: "copy bookmark name", value: stack.trunkName },
-            ...(stack.trunkChange
-              ? [
-                  {
-                    label: "copy commit sha",
-                    value: stack.trunkChange.commitId,
-                  },
-                ]
-              : []),
-          ])
-        }
+      <ContextMenu
+        items={[
+          copyItem("copy bookmark name", stack.trunkName),
+          ...(stack.trunkChange
+            ? [copyItem("copy commit sha", stack.trunkChange.commitId)]
+            : []),
+        ]}
       >
-        <span className="trunk-icon">◆</span> {stack.trunkName}
-      </div>
+        <div className="trunk-row" title="immutable base">
+          <span className="trunk-icon">◆</span> {stack.trunkName}
+        </div>
+      </ContextMenu>
     </div>
   );
 }
@@ -255,13 +241,11 @@ function SegmentCard({
   activeKey,
   commentCounts,
   onSelect,
-  openMenu,
 }: {
   segment: StackSegment;
   activeKey: string;
   commentCounts: Map<string, number>;
   onSelect: (spec: DiffSpec) => void;
-  openMenu: OpenMenu;
 }) {
   const spec = segmentSpec(segment);
   const status = segment.pushStatus
@@ -270,43 +254,46 @@ function SegmentCard({
   const segCommentCount = commentCounts.get(spec.key) ?? 0;
 
   const segmentMenuItems: MenuItem[] = [
-    ...segment.bookmarks.map((b) => ({
-      label: segment.bookmarks.length > 1 ? `copy "${b}"` : "copy bookmark name",
-      value: b,
-    })),
-    ...(segment.pr ? [{ label: "copy PR url", value: segment.pr.url }] : []),
-    { label: "copy head change id", value: segment.headChangeId },
+    ...segment.bookmarks.map((b) =>
+      copyItem(
+        segment.bookmarks.length > 1 ? `copy "${b}"` : "copy bookmark name",
+        b,
+      ),
+    ),
+    ...(segment.pr ? [copyItem("copy PR url", segment.pr.url)] : []),
+    copyItem("copy head change id", segment.headChangeId),
   ];
 
   return (
     <section
       className={activeKey === spec.key ? "segment active" : "segment"}
     >
-      <header
-        className="segment-header"
-        onClick={() => onSelect(spec)}
-        onContextMenu={(e) => openMenu(e, segmentMenuItems)}
-      >
-        {status && <span className={`dot ${status.dot}`} title={status.label} />}
-        <span className="segment-name">
-          {segment.name ?? "working copy"}
-        </span>
-        {segCommentCount > 0 && (
-          <span className="badge badge-comments">{segCommentCount}</span>
-        )}
-        {segment.pr && (
-          <a
-            className={segment.pr.isDraft ? "pr-link draft" : "pr-link"}
-            href={segment.pr.url}
-            target="_blank"
-            rel="noreferrer"
-            title={segment.pr.title}
-            onClick={(e) => e.stopPropagation()}
-          >
-            #{segment.pr.number}
-          </a>
-        )}
-      </header>
+      <ContextMenu items={segmentMenuItems}>
+        <header
+          className="segment-header"
+          onClick={() => onSelect(spec)}
+        >
+          {status && <span className={`dot ${status.dot}`} title={status.label} />}
+          <span className="segment-name">
+            {segment.name ?? "working copy"}
+          </span>
+          {segCommentCount > 0 && (
+            <span className="badge badge-comments">{segCommentCount}</span>
+          )}
+          {segment.pr && (
+            <a
+              className={segment.pr.isDraft ? "pr-link draft" : "pr-link"}
+              href={segment.pr.url}
+              target="_blank"
+              rel="noreferrer"
+              title={segment.pr.title}
+              onClick={(e) => e.stopPropagation()}
+            >
+              #{segment.pr.number}
+            </a>
+          )}
+        </header>
+      </ContextMenu>
       <ul className="segment-changes">
         {segment.changes.map((change) => {
           const cs = changeSpec(change);
@@ -314,28 +301,28 @@ function SegmentCard({
             change.description.split("\n", 1)[0]?.trim() || "(no description)";
           const count = commentCounts.get(cs.key) ?? 0;
           const changeMenuItems: MenuItem[] = [
-            { label: "copy change id", value: change.changeId },
-            { label: "copy commit sha", value: change.commitId },
+            copyItem("copy change id", change.changeId),
+            copyItem("copy commit sha", change.commitId),
             ...(change.description.trim()
-              ? [{ label: "copy description", value: change.description }]
+              ? [copyItem("copy description", change.description)]
               : []),
           ];
           return (
-            <li
-              key={change.changeId}
-              className={activeKey === cs.key ? "change active" : "change"}
-              onClick={() => onSelect(cs)}
-              onContextMenu={(e) => openMenu(e, changeMenuItems)}
-              title={change.description || undefined}
-            >
-              <ChangeId id={change.changeId} prefix={change.changeIdPrefix} />
-              <span className="change-summary">{summary}</span>
-              {change.isWorkingCopy && <span className="wc-marker">@</span>}
-              {change.empty
-                ? <span className="empty-marker">empty</span>
-                : <span className="file-count">{change.fileCount}</span>}
-              {count > 0 && <span className="badge badge-comments">{count}</span>}
-            </li>
+            <ContextMenu key={change.changeId} items={changeMenuItems}>
+              <li
+                className={activeKey === cs.key ? "change active" : "change"}
+                onClick={() => onSelect(cs)}
+                title={change.description || undefined}
+              >
+                <ChangeId id={change.changeId} prefix={change.changeIdPrefix} />
+                <span className="change-summary">{summary}</span>
+                {change.isWorkingCopy && <span className="wc-marker">@</span>}
+                {change.empty
+                  ? <span className="empty-marker">empty</span>
+                  : <span className="file-count">{change.fileCount}</span>}
+                {count > 0 && <span className="badge badge-comments">{count}</span>}
+              </li>
+            </ContextMenu>
           );
         })}
       </ul>

@@ -551,9 +551,11 @@ button.danger {
 
 /* ---------------------------------------------------------- context menu */
 
-.context-menu {
-    position: fixed;
+.context-menu-positioner {
     z-index: 1000;
+}
+
+.context-menu {
     min-width: 220px;
     background: var(--panel-raised);
     border: 1px solid var(--border);
@@ -562,21 +564,34 @@ button.danger {
     padding: 4px;
     display: flex;
     flex-direction: column;
+    outline: none;
 }
 .context-menu-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
+    width: 100%;
     border: none;
     background: transparent;
     text-align: left;
     padding: 6px 8px;
     border-radius: 5px;
+    cursor: default;
+    font: inherit;
+    color: inherit;
 }
-.context-menu-item:hover {
+.context-menu-item[data-highlighted] {
     background: color-mix(in srgb, var(--accent) 14%, transparent);
-    border: none;
+}
+.context-menu-item[data-disabled] {
+    opacity: 0.45;
+    pointer-events: none;
+}
+.context-menu-separator {
+    height: 1px;
+    margin: 4px 0;
+    background: var(--border);
 }
 .context-menu-value {
     font-family: var(--font-mono);

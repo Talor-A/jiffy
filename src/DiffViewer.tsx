@@ -16,7 +16,7 @@ import type {
   DiffResponse,
 } from "../lib/schema";
 import { ChangeId } from "./ChangeId";
-import type { OpenMenu } from "./ContextMenu";
+import { ContextMenu, copyItem } from "./ContextMenu";
 import {
   addComment,
   clearComments,
@@ -105,7 +105,6 @@ export function DiffViewer({
   allCommentCount,
   onCommentsChanged,
   onEditingChanged,
-  openMenu,
 }: {
   spec: DiffSpec;
   diff: DiffResponse;
@@ -114,7 +113,6 @@ export function DiffViewer({
   allCommentCount: number;
   onCommentsChanged: () => Promise<void>;
   onEditingChanged: (editing: boolean) => void;
-  openMenu: OpenMenu;
 }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [describing, setDescribing] = useState<DescribeTarget | null>(null);
@@ -281,7 +279,6 @@ export function DiffViewer({
               <FileDiffCard
                 key={`${diffKey}:${file.name}`}
                 file={file}
-                openMenu={openMenu}
                 diffStyle={diffStyle}
                 comments={comments.filter((c) => c.file === file.name)}
                 draft={draft?.file === file.name ? draft : null}
@@ -486,7 +483,6 @@ function FileDiffCard({
   onSaveDraft,
   onCommentsChanged,
   registerRef,
-  openMenu,
 }: {
   file: FileDiffMetadata;
   diffStyle: "unified" | "split";
@@ -497,7 +493,6 @@ function FileDiffCard({
   onSaveDraft: (text: string) => Promise<void>;
   onCommentsChanged: () => Promise<void>;
   registerRef: (el: HTMLDivElement | null) => void;
-  openMenu: OpenMenu;
 }) {
   const annotations = useMemo(() => {
     const result: DiffLineAnnotation<AnnoMeta>[] = [];
@@ -606,27 +601,28 @@ function FileDiffCard({
   );
 
   return (
-    <div
-      className="file-card"
-      ref={registerRef}
-      data-file={file.name}
-      onContextMenu={(e) =>
-        openMenu(e, [
-          { label: "copy file path", value: file.name },
-          ...(file.prevName
-            ? [{ label: "copy old file path", value: file.prevName }]
-            : []),
-        ])
-      }
+    <ContextMenu
+      items={[
+        copyItem("copy file path", file.name),
+        ...(file.prevName
+          ? [copyItem("copy old file path", file.prevName)]
+          : []),
+      ]}
     >
-      <FileDiff<AnnoMeta>
-        fileDiff={file}
-        options={options}
-        lineAnnotations={annotations}
-        renderAnnotation={renderAnnotation}
-        disableWorkerPool
-      />
-    </div>
+      <div
+        className="file-card"
+        ref={registerRef}
+        data-file={file.name}
+      >
+        <FileDiff<AnnoMeta>
+          fileDiff={file}
+          options={options}
+          lineAnnotations={annotations}
+          renderAnnotation={renderAnnotation}
+          disableWorkerPool
+        />
+      </div>
+    </ContextMenu>
   );
 }
 
