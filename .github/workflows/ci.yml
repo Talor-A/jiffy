@@ -38,4 +38,29 @@ jobs:
             --output - | tar xz -C "$HOME/.local/bin" ./jj
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: bun install --frozen-lockfile
+      # Browser tests run in the e2e job: on Linux, Chrome teardown can
+      # corrupt an epoll fd in Bun's event loop and break later Bun.spawn
+      # calls in the same process (EBADF).
       - run: bun run test
+        env:
+          JIFFY_SKIP_E2E: "1"
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install jj
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=v0.41.0
+          mkdir -p "$HOME/.local/bin"
+          gh release download "$tag" --repo jj-vcs/jj \
+            --pattern "jj-${tag}-x86_64-unknown-linux-musl.tar.gz" \
+            --output - | tar xz -C "$HOME/.local/bin" ./jj
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - run: bun install --frozen-lockfile
+      # Drives the system Chrome preinstalled on ubuntu runners; no browser
+      # download needed.
+      - run: bun run test:e2e

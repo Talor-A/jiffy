@@ -36,6 +36,9 @@ export class RepoWatcher {
   private lastOpId: string | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
 
+  /** Resolves once the baseline op id is recorded (see {@link start}). */
+  ready: Promise<void> = Promise.resolve();
+
   constructor(
     private readonly jj: Jj,
     private readonly intervalMs = 2_000,
@@ -43,6 +46,10 @@ export class RepoWatcher {
 
   start(): void {
     if (this.timer) return;
+    // Prime the baseline immediately: the first observation of the op id
+    // only records it, so a repo change landing before the first interval
+    // tick would otherwise be missed silently.
+    this.ready = this.poll();
     this.timer = setInterval(() => void this.poll(), this.intervalMs);
   }
 

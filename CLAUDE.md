@@ -194,6 +194,14 @@ import { Jj, JIFFY_JJ_CONFIG } from "../lib/jj";
 const jj = new Jj({ cwd: tmpDir, configFile: JIFFY_JJ_CONFIG });
 ```
 
+`test/e2e.test.ts` is the browser e2e suite (`bun run test:e2e`): it boots the
+real server (with the `src/index.html` frontend import) against a `TestRepo`
+and drives it with the system Chrome via `playwright-core` (`channel:
+"chrome"` — present on dev Macs and GitHub's ubuntu runners; override the
+binary with `JIFFY_CHROME`). `JIFFY_SKIP_E2E=1` skips it; CI runs it as a
+separate job because Chrome teardown on Linux can break later `Bun.spawn`
+calls in the same process (EBADF).
+
 ## Connections to jj-pr
 
 [Talor-A/jj-pr](https://github.com/Talor-A/jj-pr) is the sibling tool for creating/pushing PRs. Jiffy's `lib/exec.ts` and `lib/schema.ts` patterns are modeled on jj-pr. If shared utilities grow, consider extracting a `jj-common` package, but don't do it preemptively.
