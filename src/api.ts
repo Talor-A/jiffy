@@ -147,7 +147,7 @@ export interface DiffSpec {
  */
 export const WC_SPEC: DiffSpec = {
   key: "segment:@",
-  label: "working copy",
+  label: "local changes",
   params: {
     from: "roots(::@ & remote_bookmarks().. & bookmarks()..)-",
     to: "@",
@@ -164,7 +164,7 @@ export function segmentSpec(segment: {
   // if (segment.name === null) return WC_SPEC;
   return {
     key: `segment:${segment.name}`,
-    label: segment.name ?? "working copy",
+    label: segment.name ?? "local changes",
     params: segment.baseChangeId
       ? { from: segment.baseChangeId, to: segment.headChangeId }
       : { change: segment.headChangeId },

@@ -230,7 +230,13 @@ export function App() {
         `${STACK_ACTION_CONFIG[stackAction].confirmVerb} ${changeLabel(change)}?`,
       );
     },
-    [stackAction, squashSource, bookmarkMoveTarget, closePicker, runStackAction],
+    [
+      stackAction,
+      squashSource,
+      bookmarkMoveTarget,
+      closePicker,
+      runStackAction,
+    ],
   );
 
   const getPickerDisabledReason = useCallback(
@@ -267,7 +273,7 @@ export function App() {
     () => [
       {
         id: "working-copy",
-        label: "View working copy",
+        label: "View local changes",
         keywords: ["diff", "wc", "at"],
         run: () => setSpec(WC_SPEC),
       },
@@ -697,7 +703,9 @@ function SegmentCard({
           {status && (
             <span className={`dot ${status.dot}`} title={status.label} />
           )}
-          <span className="segment-name">{segment.name ?? "working copy"}</span>
+          <span className="segment-name">
+            {segment.name ?? "local changes"}
+          </span>
           {segCommentCount > 0 && (
             <span className="badge badge-comments">{segCommentCount}</span>
           )}
