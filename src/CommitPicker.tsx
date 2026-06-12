@@ -8,6 +8,11 @@ export interface PickableChange {
   segmentName: string | null;
 }
 
+/** cmdk identity for an item; defaultValue must produce the same string. */
+function itemValue(change: ChangeInfo, summary: string): string {
+  return `${change.changeIdPrefix} ${summary}`;
+}
+
 export function flattenStackChanges(stack: StackView | null): PickableChange[] {
   if (!stack) return [];
   return stack.segments.flatMap((segment) =>
@@ -24,6 +29,7 @@ export function CommitPicker({
   detail,
   changes,
   actionLabel,
+  defaultChangeId,
   onPick,
   onOpenChange,
   getDisabledReason,
@@ -33,6 +39,8 @@ export function CommitPicker({
   detail: string;
   changes: PickableChange[];
   actionLabel: string;
+  /** Change highlighted when the picker opens (falls back to the first item). */
+  defaultChangeId?: string;
   onPick: (change: ChangeInfo) => void;
   onOpenChange: (open: boolean) => void;
   getDisabledReason?: (change: ChangeInfo) => string | null;
@@ -54,11 +62,19 @@ export function CommitPicker({
     [changes],
   );
 
+  // The parent decides whether picking closes the dialog — two-step flows
+  // (e.g. squash source → destination) keep it open between picks.
   const pick = (change: ChangeInfo) => {
     if (getDisabledReason?.(change)) return;
-    onOpenChange(false);
     onPick(change);
   };
+
+  const defaultValue = useMemo(() => {
+    const item = searchableChanges.find(
+      (i) => i.change.changeId === defaultChangeId,
+    );
+    return item ? itemValue(item.change, item.summary) : undefined;
+  }, [searchableChanges, defaultChangeId]);
 
   return (
     <Command.Dialog
@@ -66,6 +82,7 @@ export function CommitPicker({
       onOpenChange={onOpenChange}
       label={title}
       loop
+      defaultValue={defaultValue}
       vimBindings={false}
       overlayClassName="modal-overlay command-overlay"
       contentClassName="modal-panel command-panel commit-picker-panel"
@@ -91,7 +108,7 @@ export function CommitPicker({
             return (
               <Command.Item
                 key={change.changeId}
-                value={`${change.changeIdPrefix} ${summary}`}
+                value={itemValue(change, summary)}
                 keywords={[
                   change.changeId,
                   change.commitId,

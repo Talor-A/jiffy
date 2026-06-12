@@ -58,6 +58,38 @@ describe("/api/actions jj mutations", () => {
     expect(parent?.description).toStartWith("add alpha");
   }, 30_000);
 
+  test("squashes a change into an explicit non-parent destination", async () => {
+    const { repo, post } = await actionFixture();
+    await repo.write("a.txt", "alpha\n");
+    await repo.commit("add alpha");
+    await repo.write("b.txt", "bravo\n");
+    await repo.commit("add bravo");
+    await repo.write("c.txt", "charlie\n");
+    await repo.commit("add charlie");
+    const source = await repo.jj.resolve("@-");
+    const destination = await repo.jj.resolve("@---");
+    expect(source?.description).toStartWith("add charlie");
+    expect(destination?.description).toStartWith("add alpha");
+
+    const res = await post({
+      action: "squash",
+      fromChangeId: source!.changeId,
+      intoChangeId: destination!.changeId,
+      useDestinationMessage: true,
+    });
+    expect(res.status).toBe(200);
+
+    const remaining = await repo.jj.log("trunk()..@");
+    expect(remaining.map((change) => change.changeId)).not.toContain(
+      source!.changeId,
+    );
+    const destinationDiff = await repo.jj.diffChange(destination!.changeId);
+    expect(destinationDiff).toContain("a.txt");
+    expect(destinationDiff).toContain("c.txt");
+    const after = await repo.jj.resolve(destination!.changeId);
+    expect(after?.description).toStartWith("add alpha");
+  }, 30_000);
+
   test("absorbs working-copy edits into mutable ancestors", async () => {
     const { repo, post } = await actionFixture();
     await repo.write("a.txt", "alpha\n");

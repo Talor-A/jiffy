@@ -174,7 +174,7 @@ describe.skipIf(SKIP)("e2e", () => {
       await page.keyboard.press("ArrowDown");
       await see(
         page.locator('.command-item[data-selected="true"]', {
-          hasText: "View latest change",
+          hasText: "View working copy",
         }),
       );
     }, 30_000);

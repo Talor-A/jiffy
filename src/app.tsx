@@ -40,6 +40,8 @@ export function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [stackAction, setStackAction] = useState<StackActionKind | null>(null);
+  // Squash picks twice: the source first, then the destination.
+  const [squashSource, setSquashSource] = useState<ChangeInfo | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   // While a comment draft is open we don't clobber the diff under the
@@ -120,20 +122,22 @@ export function App() {
 
   const pickableChanges = useMemo(() => flattenStackChanges(stack), [stack]);
 
+  const closePicker = useCallback(() => {
+    setStackAction(null);
+    setSquashSource(null);
+  }, []);
+
   const runStackAction = useCallback(
-    async (kind: StackActionKind, change: ChangeInfo) => {
-      const config = STACK_ACTION_CONFIG[kind];
-      const summary =
-        change.description.split("\n", 1)[0]?.trim() || "(no description)";
+    async (request: ActionRequest, confirmation: string) => {
       const confirmed = window.confirm(
-        `${config.confirmVerb} ${change.changeIdPrefix} "${summary}"?\n\n` +
+        `${confirmation}\n\n` +
           "This rewrites jj history. Use `jj op restore` if you need to undo it.",
       );
       if (!confirmed) return;
 
       setActionError(null);
       try {
-        await runAction(stackActionRequest(kind, change));
+        await runAction(request);
         await loadStack(false);
         setSpec(WC_SPEC);
         await loadDiff(WC_SPEC);
@@ -144,16 +148,53 @@ export function App() {
     [loadStack, loadDiff],
   );
 
+  const handlePick = useCallback(
+    (change: ChangeInfo) => {
+      if (!stackAction) return;
+      if (stackAction === "squash") {
+        if (!squashSource) {
+          // First pick: hold the source; the picker stays open for the
+          // destination pick.
+          setSquashSource(change);
+          return;
+        }
+        closePicker();
+        void runStackAction(
+          {
+            action: "squash",
+            fromChangeId: squashSource.changeId,
+            intoChangeId: change.changeId,
+            useDestinationMessage: true,
+          },
+          `Squash ${changeLabel(squashSource)} into ${changeLabel(change)}?`,
+        );
+        return;
+      }
+      closePicker();
+      void runStackAction(
+        stackActionRequest(stackAction, change),
+        `${STACK_ACTION_CONFIG[stackAction].confirmVerb} ${changeLabel(change)}?`,
+      );
+    },
+    [stackAction, squashSource, closePicker, runStackAction],
+  );
+
   const getPickerDisabledReason = useCallback(
     (change: ChangeInfo): string | null => {
       if (change.immutable) return "immutable";
-      if (stackAction === "squash" && change.parents.length !== 1) {
-        return "merge";
+      if (squashSource && change.changeId === squashSource.changeId) {
+        return "source";
       }
       return null;
     },
-    [stackAction],
+    [squashSource],
   );
+
+  const pickerConfig = stackAction
+    ? squashSource
+      ? squashIntoConfig(squashSource)
+      : STACK_ACTION_CONFIG[stackAction]
+    : null;
 
   useKeyboardShortcuts({
     editingRef,
@@ -224,10 +265,10 @@ export function App() {
       },
       {
         id: "squash-change",
-        label: "Squash change into parent...",
-        keywords: ["stack", "commit", "picker", "combine"],
+        label: "Squash change...",
+        keywords: ["stack", "commit", "picker", "combine", "parent", "fold"],
         detail: pickableChanges.length
-          ? "Uses destination message"
+          ? "Pick source, then destination"
           : "No stack changes",
         disabled: pickableChanges.length === 0,
         run: () => setStackAction("squash"),
@@ -321,22 +362,21 @@ export function App() {
           actions={paletteActions}
           onOpenChange={setPaletteOpen}
         />
-        {stackAction && (
+        {pickerConfig && (
           <CommitPicker
-            open={stackAction !== null}
-            title={STACK_ACTION_CONFIG[stackAction].title}
-            detail={STACK_ACTION_CONFIG[stackAction].detail}
+            // Remount between squash steps so search and selection reset.
+            key={squashSource ? "squash-destination" : stackAction}
+            open
+            title={pickerConfig.title}
+            detail={pickerConfig.detail}
             changes={pickableChanges}
-            actionLabel={STACK_ACTION_CONFIG[stackAction].actionLabel}
+            actionLabel={pickerConfig.actionLabel}
+            defaultChangeId={squashSource?.parents[0]}
             getDisabledReason={getPickerDisabledReason}
             onOpenChange={(open) => {
-              if (!open) setStackAction(null);
+              if (!open) closePicker();
             }}
-            onPick={(change) => {
-              const kind = stackAction;
-              setStackAction(null);
-              void runStackAction(kind, change);
-            }}
+            onPick={handlePick}
           />
         )}
         {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
@@ -371,16 +411,34 @@ const STACK_ACTION_CONFIG: Record<
     confirmVerb: "Absorb from",
   },
   squash: {
-    title: "Squash Into Parent",
+    title: "Squash: Pick Source",
     detail:
-      "Pick one non-merge change. Jiffy squashes it into its parent and keeps the parent's description.",
+      "Pick the change to squash. You'll pick the destination it folds into next.",
     actionLabel: "Squash",
     confirmVerb: "Squash",
   },
 };
 
+function squashIntoConfig(source: ChangeInfo): {
+  title: string;
+  detail: string;
+  actionLabel: string;
+} {
+  return {
+    title: "Squash: Pick Destination",
+    detail: `Move ${changeLabel(source)} into the destination, keeping the destination's description.`,
+    actionLabel: "Squash into",
+  };
+}
+
+function changeLabel(change: ChangeInfo): string {
+  const summary =
+    change.description.split("\n", 1)[0]?.trim() || "(no description)";
+  return `${change.changeIdPrefix} "${summary}"`;
+}
+
 function stackActionRequest(
-  kind: StackActionKind,
+  kind: "abandon" | "absorb",
   change: ChangeInfo,
 ): ActionRequest {
   switch (kind) {
@@ -388,12 +446,6 @@ function stackActionRequest(
       return { action: "abandon", changeIds: [change.changeId] };
     case "absorb":
       return { action: "absorb", changeId: change.changeId };
-    case "squash":
-      return {
-        action: "squash",
-        fromChangeId: change.changeId,
-        useDestinationMessage: true,
-      };
   }
 }
 

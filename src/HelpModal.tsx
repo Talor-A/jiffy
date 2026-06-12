@@ -76,8 +76,8 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
             <li>
               Stack operations open a commit picker from the palette. v1
               supports <code>abandon</code>, <code>absorb</code>, and
-              parent-only <code>squash</code>; interactive split remains a
-              follow-up.
+              <code>squash</code> (pick a source, then the destination it
+              folds into); interactive split remains a follow-up.
             </li>
             <li>
               Shortcuts pause while a comment or description draft is open,
