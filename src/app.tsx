@@ -221,13 +221,6 @@ export function App() {
   const paletteActions = useMemo<PaletteAction[]>(
     () => [
       {
-        id: "refresh",
-        label: "Refresh repository",
-        keywords: ["reload", "snapshot", "jj"],
-        run: handleRefresh,
-      },
-
-      {
         id: "working-copy",
         label: "View working copy",
         keywords: ["diff", "wc", "at"],
@@ -309,6 +302,12 @@ export function App() {
         detail: "Planned",
         disabled: true,
         run: () => {},
+      },
+      {
+        id: "refresh",
+        label: "Refresh repository",
+        keywords: ["reload", "snapshot", "jj"],
+        run: handleRefresh,
       },
     ],
     [handleRefresh, pickableChanges.length, repo],
