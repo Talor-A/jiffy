@@ -483,8 +483,8 @@ button.danger {
 }
 @media (prefers-color-scheme: dark) {
     .file-card {
-        --diffs-token-light: var(--text);
-        --diffs-token-dark: var(--bg);
+        --diffs-token-light: var(--bg);
+        --diffs-token-dark: var(--text);
         /* Same hues, slightly higher opacity for visibility on dark */
         --diffs-bg-addition-override: rgba(8, 205, 44, 0.12);
         --diffs-bg-deletion-override: rgba(255, 33, 21, 0.1);
