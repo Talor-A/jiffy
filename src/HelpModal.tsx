@@ -110,10 +110,6 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
               <code>--ignore-working-copy</code>, so jiffy never races your
               agent for the workspace lock.
             </li>
-            <li>
-              <b>↻ refresh</b> additionally snapshots the working copy, picking
-              up file edits made outside jj.
-            </li>
           </ul>
         </section>
       </div>

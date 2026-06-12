@@ -296,11 +296,9 @@ export function App() {
             />
           )}
 
-          <footer className="sidebar-footer">
-            <button className="ghost" onClick={() => void handleRefresh()}>
-              ↻ refresh
-            </button>
-          </footer>
+          {/*<footer className="sidebar-footer">
+
+          </footer>*/}
         </aside>
 
         <main className="main">
