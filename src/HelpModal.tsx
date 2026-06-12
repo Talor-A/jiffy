@@ -13,17 +13,15 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
           <h3>Views</h3>
           <ul>
             <li>
-              <b>Latest change</b> — the newest described, non-empty change
-              (<code>closest_pushable(@)</code>).
+              <b>Stack</b> — every change between trunk and <code>@</code>,
+              grouped into segments by bookmark. Click a segment to review that
+              bookmark's whole diff (its PR), or a single change for just that
+              revision.
             </li>
             <li>
-              <b>Stack</b> — every change between trunk and <code>@</code>,
-              grouped into segments by bookmark. Click a segment to review
-              that bookmark's whole diff (its PR), or a single change for
-              just that revision. The <b>working copy</b> segment is
-              everything since the nearest bookmark, including unsaved file
-              edits — "what the agent has done since I last marked a
-              checkpoint".
+              The <b>working copy</b> segment is everything since the nearest
+              bookmark, including unsaved file edits — "what the agent has done
+              since I last marked a checkpoint".
             </li>
           </ul>
         </section>
@@ -45,8 +43,8 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
             </li>
             <li>PR badges link to GitHub (dashed border = draft).</li>
             <li>
-              Right-click anything — segments, changes, files, trunk — to
-              copy ids, bookmark names, PR URLs, or file paths.
+              Right-click anything — segments, changes, files, trunk — to copy
+              ids, bookmark names, PR URLs, or file paths.
             </li>
           </ul>
         </section>
@@ -62,8 +60,8 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
             </li>
             <li>
               <b>copy feedback</b> exports everything as markdown with
-              <code>file:line</code> references and the commented source —
-              paste it straight to your agent.
+              <code>file:line</code> references and the commented source — paste
+              it straight to your agent.
             </li>
           </ul>
         </section>
@@ -73,8 +71,7 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
           <ul>
             <li>
               Press <kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd> to open commands like
-              refresh, view latest change, view working copy, or open this
-              help.
+              refresh, view latest change, view working copy, or open this help.
             </li>
             <li>
               Stack operations open a commit picker from the palette. v1
@@ -98,8 +95,8 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
           <h3>Editing</h3>
           <ul>
             <li>
-              Double-click a description in the diff header to edit it
-              (<code>jj describe</code>).
+              Double-click a description in the diff header to edit it (
+              <code>jj describe</code>).
             </li>
           </ul>
         </section>
@@ -108,8 +105,8 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
           <h3>Live updates</h3>
           <ul>
             <li>
-              The view refreshes automatically when anything runs jj in the
-              repo (the op log is polled every 2s). Reads use
+              The view refreshes automatically when anything runs jj in the repo
+              (the op log is polled every 2s). Reads use
               <code>--ignore-working-copy</code>, so jiffy never races your
               agent for the workspace lock.
             </li>

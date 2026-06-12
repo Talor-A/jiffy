@@ -43,7 +43,9 @@ export function getRepo(): Promise<RepoInfo> {
   return request(RepoInfoSchema, "/api/repo");
 }
 
-export function getStack(opts: { snapshot?: boolean } = {}): Promise<StackView> {
+export function getStack(
+  opts: { snapshot?: boolean } = {},
+): Promise<StackView> {
   return request(
     StackViewSchema,
     `/api/stack${opts.snapshot ? "?snapshot=1" : ""}`,
@@ -146,13 +148,10 @@ export interface DiffSpec {
 export const WC_SPEC: DiffSpec = {
   key: "segment:@",
   label: "working copy",
-  params: { from: "closest_bookmark(@)", to: "@" },
-};
-
-export const LATEST_SPEC: DiffSpec = {
-  key: "latest",
-  label: "Latest change",
-  params: { change: "closest_pushable(@)" },
+  params: {
+    from: "roots(::@ & remote_bookmarks().. & bookmarks()..)-",
+    to: "@",
+  },
 };
 
 export function segmentSpec(segment: {
@@ -162,10 +161,10 @@ export function segmentSpec(segment: {
 }): DiffSpec {
   // The unbookmarked tip segment is the working-copy view; the revset form
   // (unlike pinned change ids) snapshots live file edits into the diff.
-  if (segment.name === null) return WC_SPEC;
+  // if (segment.name === null) return WC_SPEC;
   return {
     key: `segment:${segment.name}`,
-    label: segment.name,
+    label: segment.name ?? "working copy",
     params: segment.baseChangeId
       ? { from: segment.baseChangeId, to: segment.headChangeId }
       : { change: segment.headChangeId },

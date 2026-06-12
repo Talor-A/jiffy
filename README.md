@@ -19,9 +19,6 @@ Options: `-p/--port N` (default 5959), `--no-open`.
 
 ### What you get
 
-- **Quick views** — *Since last bookmark* (`closest_bookmark(@) → @`,
-  including unsnapshotted working-copy edits) and *Latest change*
-  (`closest_pushable(@)`: the newest described, non-empty change).
 - **Stack panel** — segments of `trunk()..@` grouped by bookmark, each with a
   push-status dot (synced / moved-needs-push / never pushed), a GitHub PR
   link when one exists, and the changes it contains. Click a segment or a

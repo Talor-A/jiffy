@@ -183,21 +183,6 @@ button.danger {
     margin: 0 0 0 6px;
 }
 
-.quick-views {
-    display: flex;
-    gap: 6px;
-    padding: 10px 16px;
-    border-bottom: 1px solid var(--border);
-}
-.quick {
-    flex: 1;
-    user-select: none;
-}
-.quick.active {
-    border-color: var(--accent);
-    color: var(--accent);
-}
-
 /* ----------------------------------------------------------------- stack */
 
 .stack {

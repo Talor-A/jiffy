@@ -90,8 +90,6 @@ config.toml           jj revset aliases for jiffy's queries
 
 ### DiffSpec (`src/api.ts`)
 Stable identifier for what is currently being viewed. Survives commit amendments.
-- `WC_SPEC` — working copy diff
-- `LATEST_SPEC` — latest non-empty change
 - `segmentSpec(bookmarkName)` — diff for a stack segment
 - `changeSpec(changeId)` — diff for a specific change
 

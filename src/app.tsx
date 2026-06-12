@@ -13,7 +13,6 @@ import {
   getDiff,
   getRepo,
   getStack,
-  LATEST_SPEC,
   listComments,
   onRepoChanged,
   refreshRepo,
@@ -173,12 +172,7 @@ export function App() {
         keywords: ["reload", "snapshot", "jj"],
         run: handleRefresh,
       },
-      {
-        id: "latest-change",
-        label: "View latest change",
-        keywords: ["diff", "pushable"],
-        run: () => setSpec(LATEST_SPEC),
-      },
+
       {
         id: "working-copy",
         label: "View working copy",
@@ -198,7 +192,8 @@ export function App() {
         detail: repo?.github ? repo.github.nameWithOwner : "No GitHub remote",
         disabled: !repo?.github,
         run: () => {
-          if (repo?.github) window.open(repo.github.url, "_blank", "noreferrer");
+          if (repo?.github)
+            window.open(repo.github.url, "_blank", "noreferrer");
         },
       },
       {
@@ -213,9 +208,7 @@ export function App() {
         id: "abandon-change",
         label: "Abandon change...",
         keywords: ["stack", "commit", "picker", "delete", "drop"],
-        detail: pickableChanges.length
-          ? "Pick one change"
-          : "No stack changes",
+        detail: pickableChanges.length ? "Pick one change" : "No stack changes",
         disabled: pickableChanges.length === 0,
         run: () => setStackAction("abandon"),
       },
@@ -263,99 +256,93 @@ export function App() {
     <>
       <title>{formatPageTitle(spec.label, repo)}</title>
       <div className="app">
-      <aside className="sidebar">
-        <header className="repo-header">
-          <h1>jiffy</h1>
-          <button
-            className="ghost help-button"
-            title="what is this?"
-            onClick={() => setHelpOpen(true)}
-          >
-            ?
-          </button>
-          {repo && (
-            <div className="repo-name" title={repo.root}>
-              {repo.github ? (
-                <a href={repo.github.url} target="_blank" rel="noreferrer">
-                  {repo.github.nameWithOwner}
-                </a>
-              ) : (
-                repo.root.split("/").pop()
-              )}
-            </div>
+        <aside className="sidebar">
+          <header className="repo-header">
+            <h1>jiffy</h1>
+            <button
+              className="ghost help-button"
+              title="what is this?"
+              onClick={() => setHelpOpen(true)}
+            >
+              ?
+            </button>
+            {repo && (
+              <div className="repo-name" title={repo.root}>
+                {repo.github ? (
+                  <a href={repo.github.url} target="_blank" rel="noreferrer">
+                    {repo.github.nameWithOwner}
+                  </a>
+                ) : (
+                  repo.root.split("/").pop()
+                )}
+              </div>
+            )}
+            {stack?.hasUnpushedWork && (
+              <span
+                className="badge badge-unpushed"
+                title="Local work not on the remote yet"
+              >
+                unpushed work
+              </span>
+            )}
+          </header>
+
+          {stack && (
+            <StackPanel
+              stack={stack}
+              activeKey={spec.key}
+              commentCounts={countBySpec(comments)}
+              onSelect={setSpec}
+            />
           )}
-          {stack?.hasUnpushedWork && (
-            <span className="badge badge-unpushed" title="Local work not on the remote yet">
-              unpushed work
-            </span>
+
+          <footer className="sidebar-footer">
+            <button className="ghost" onClick={() => void handleRefresh()}>
+              ↻ refresh
+            </button>
+          </footer>
+        </aside>
+
+        <main className="main">
+          {actionError && <div className="error-banner">{actionError}</div>}
+          {diffError && <div className="error-banner">{diffError}</div>}
+          {loading && !diff && <div className="placeholder">loading…</div>}
+          {diff && (
+            <DiffViewer
+              spec={spec}
+              diff={diff}
+              comments={comments.filter((c) => c.specKey === spec.key)}
+              allCommentCount={comments.length}
+              onCommentsChanged={reloadComments}
+              onEditingChanged={setEditing}
+            />
           )}
-        </header>
-
-        <nav className="quick-views">
-          <button
-            className={spec.key === LATEST_SPEC.key ? "quick active" : "quick"}
-            onClick={() => setSpec(LATEST_SPEC)}
-          >
-            {LATEST_SPEC.label}
-          </button>
-        </nav>
-
-        {stack && (
-          <StackPanel
-            stack={stack}
-            activeKey={spec.key}
-            commentCounts={countBySpec(comments)}
-            onSelect={setSpec}
-          />
-        )}
-
-        <footer className="sidebar-footer">
-          <button className="ghost" onClick={() => void handleRefresh()}>
-            ↻ refresh
-          </button>
-        </footer>
-      </aside>
-
-      <main className="main">
-        {actionError && <div className="error-banner">{actionError}</div>}
-        {diffError && <div className="error-banner">{diffError}</div>}
-        {loading && !diff && <div className="placeholder">loading…</div>}
-        {diff && (
-          <DiffViewer
-            spec={spec}
-            diff={diff}
-            comments={comments.filter((c) => c.specKey === spec.key)}
-            allCommentCount={comments.length}
-            onCommentsChanged={reloadComments}
-            onEditingChanged={setEditing}
-          />
-        )}
-      </main>
-      <CommandPalette
-        open={paletteOpen}
-        actions={paletteActions}
-        onOpenChange={setPaletteOpen}
-      />
-      {stackAction && (
-        <CommitPicker
-          open={stackAction !== null}
-          title={STACK_ACTION_CONFIG[stackAction].title}
-          detail={STACK_ACTION_CONFIG[stackAction].detail}
-          changes={pickableChanges}
-          actionLabel={STACK_ACTION_CONFIG[stackAction].actionLabel}
-          getDisabledReason={getPickerDisabledReason}
-          onOpenChange={(open) => {
-            if (!open) setStackAction(null);
-          }}
-          onPick={(change) => {
-            const kind = stackAction;
-            setStackAction(null);
-            void runStackAction(kind, change);
-          }}
+        </main>
+        <CommandPalette
+          open={paletteOpen}
+          actions={paletteActions}
+          onOpenChange={setPaletteOpen}
         />
-      )}
-      {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
-    </div>
+        {stackAction && (
+          <CommitPicker
+            open={stackAction !== null}
+            title={STACK_ACTION_CONFIG[stackAction].title}
+            detail={STACK_ACTION_CONFIG[stackAction].detail}
+            changes={pickableChanges}
+            actionLabel={STACK_ACTION_CONFIG[stackAction].actionLabel}
+            getDisabledReason={getPickerDisabledReason}
+            onOpenChange={(open) => {
+              if (!open) setStackAction(null);
+            }}
+            onPick={(change) => {
+              const kind = stackAction;
+              setStackAction(null);
+              void runStackAction(kind, change);
+            }}
+          />
+        )}
+        {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
+      </div>
     </>
   );
 }
@@ -373,19 +360,22 @@ const STACK_ACTION_CONFIG: Record<
 > = {
   abandon: {
     title: "Abandon Change",
-    detail: "Pick one mutable change to abandon. Descendants will be rebased by jj.",
+    detail:
+      "Pick one mutable change to abandon. Descendants will be rebased by jj.",
     actionLabel: "Abandon",
     confirmVerb: "Abandon",
   },
   absorb: {
     title: "Absorb Change",
-    detail: "Pick a source change; jj will move edits into the mutable ancestors that last touched those lines.",
+    detail:
+      "Pick a source change; jj will move edits into the mutable ancestors that last touched those lines.",
     actionLabel: "Absorb",
     confirmVerb: "Absorb from",
   },
   squash: {
     title: "Squash Into Parent",
-    detail: "Pick one non-merge change. Jiffy squashes it into its parent and keeps the parent's description.",
+    detail:
+      "Pick one non-merge change. Jiffy squashes it into its parent and keeps the parent's description.",
     actionLabel: "Squash",
     confirmVerb: "Squash",
   },
@@ -504,18 +494,13 @@ function SegmentCard({
   ];
 
   return (
-    <section
-      className={activeKey === spec.key ? "segment active" : "segment"}
-    >
+    <section className={activeKey === spec.key ? "segment active" : "segment"}>
       <ContextMenu items={segmentMenuItems}>
-        <header
-          className="segment-header"
-          onClick={() => onSelect(spec)}
-        >
-          {status && <span className={`dot ${status.dot}`} title={status.label} />}
-          <span className="segment-name">
-            {segment.name ?? "working copy"}
-          </span>
+        <header className="segment-header" onClick={() => onSelect(spec)}>
+          {status && (
+            <span className={`dot ${status.dot}`} title={status.label} />
+          )}
+          <span className="segment-name">{segment.name ?? "working copy"}</span>
           {segCommentCount > 0 && (
             <span className="badge badge-comments">{segCommentCount}</span>
           )}
@@ -547,10 +532,7 @@ function SegmentCard({
               : []),
           ];
           return (
-            <ContextMenu
-              key={change.changeId}
-              items={changeMenuItems}
-            >
+            <ContextMenu key={change.changeId} items={changeMenuItems}>
               <li
                 className={activeKey === cs.key ? "change active" : "change"}
                 onClick={() => onSelect(cs)}
@@ -559,10 +541,14 @@ function SegmentCard({
                 <ChangeId id={change.changeId} prefix={change.changeIdPrefix} />
                 <span className="change-summary">{summary}</span>
                 {change.isWorkingCopy && <span className="wc-marker">@</span>}
-                {change.empty
-                  ? <span className="empty-marker">empty</span>
-                  : <span className="file-count">{change.fileCount}</span>}
-                {count > 0 && <span className="badge badge-comments">{count}</span>}
+                {change.empty ? (
+                  <span className="empty-marker">empty</span>
+                ) : (
+                  <span className="file-count">{change.fileCount}</span>
+                )}
+                {count > 0 && (
+                  <span className="badge badge-comments">{count}</span>
+                )}
               </li>
             </ContextMenu>
           );
