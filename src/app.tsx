@@ -107,7 +107,9 @@ export function App() {
   }, [spec, loadStack, loadDiff]);
 
   return (
-    <div className="app">
+    <>
+      <title>{formatPageTitle(spec.label, repo)}</title>
+      <div className="app">
       <aside className="sidebar">
         <header className="repo-header">
           <h1>jiffy</h1>
@@ -177,7 +179,18 @@ export function App() {
       </main>
       {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
     </div>
+    </>
   );
+}
+
+function repoDisplayName(repo: RepoInfo): string {
+  return repo.github?.nameWithOwner ?? repo.root.split("/").pop() ?? repo.root;
+}
+
+function formatPageTitle(viewLabel: string, repo: RepoInfo | null): string {
+  return [viewLabel, repo ? repoDisplayName(repo) : null, "jiffy"]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function countBySpec(comments: Comment[]): Map<string, number> {
