@@ -248,6 +248,14 @@ export function createServer(
         await jj.tug();
         return null;
       }
+      case "bookmark-move": {
+        const destination = await jj.resolve(input.toChangeId, {
+          snapshot: true,
+        });
+        if (!destination) return `no revision matches: ${input.toChangeId}`;
+        await jj.bookmarkMove(input.bookmarkName, destination.changeId);
+        return null;
+      }
       case "git-push": {
         await jj.gitPush();
         return null;

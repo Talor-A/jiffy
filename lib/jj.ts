@@ -194,6 +194,23 @@ export class Jj {
     await this.run(["tug"], { snapshot: true });
   }
 
+  /**
+   * Move a bookmark to a destination change, allowing backwards moves.
+   */
+  async bookmarkMove(bookmarkName: string, toChangeId: string): Promise<void> {
+    await this.run(
+      [
+        "bookmark",
+        "move",
+        bookmarkName,
+        "--to",
+        toChangeId,
+        "--allow-backwards",
+      ],
+      { snapshot: true },
+    );
+  }
+
   /** Push tracking bookmarks to the git remote. */
   async gitPush(): Promise<void> {
     await this.run(["git", "push"], { snapshot: true });

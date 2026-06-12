@@ -256,6 +256,11 @@ export const ActionRequestSchema = z.discriminatedUnion("action", [
     useDestinationMessage: z.boolean().optional(),
   }),
   z.object({ action: z.literal("tug") }),
+  z.object({
+    action: z.literal("bookmark-move"),
+    bookmarkName: z.string().min(1),
+    toChangeId: z.string().min(1),
+  }),
   z.object({ action: z.literal("git-push") }),
   z.object({ action: z.literal("new") }),
 ]);

@@ -152,6 +152,28 @@ describe("/api/actions jj mutations", () => {
     expect(after?.empty).toBe(true);
     expect(after?.parents).toContain(before!.changeId);
   }, 30_000);
+
+  test("moves a bookmark to a chosen destination", async () => {
+    const { repo, post } = await actionFixture();
+    await repo.write("a.txt", "alpha\n");
+    await repo.commit("add alpha");
+    await repo.bookmark("feat-a");
+    await repo.write("b.txt", "bravo\n");
+    await repo.commit("add bravo");
+    await repo.jjRaw(["new"]);
+    await repo.jjRaw(["bookmark", "set", "feat-a", "-r", "@"]);
+    const destination = await repo.jj.resolve("@-", { snapshot: true });
+
+    const res = await post({
+      action: "bookmark-move",
+      bookmarkName: "feat-a",
+      toChangeId: destination!.changeId,
+    });
+    expect(res.status).toBe(200);
+
+    const bookmarked = await repo.jj.resolve("feat-a", { snapshot: true });
+    expect(bookmarked?.changeId).toBe(destination?.changeId);
+  }, 30_000);
 });
 
 async function actionFixture(): Promise<{

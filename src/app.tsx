@@ -24,6 +24,7 @@ import {
 import { DiffViewer } from "./DiffViewer";
 import { ChangeId } from "./ChangeId";
 import { CommandPalette, type PaletteAction } from "./CommandPalette";
+import { BookmarkPicker, flattenStackBookmarks } from "./BookmarkPicker";
 import { CommitPicker, flattenStackChanges } from "./CommitPicker";
 import { ContextMenu, copyItem, type MenuItem } from "./ContextMenu";
 import { HelpModal } from "./HelpModal";
@@ -39,9 +40,12 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [helpOpen, setHelpOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [stackAction, setStackAction] = useState<StackActionKind | null>(null);
+  const [stackAction, setStackAction] = useState<PickerActionKind | null>(null);
   // Squash picks twice: the source first, then the destination.
   const [squashSource, setSquashSource] = useState<ChangeInfo | null>(null);
+  const [bookmarkMoveTarget, setBookmarkMoveTarget] = useState<string | null>(
+    null,
+  );
   const [pendingDescribe, setPendingDescribe] = useState<{
     changeId: string;
     description: string;
@@ -144,10 +148,15 @@ export function App() {
   const closeHelp = useCallback(() => setHelpOpen(false), []);
 
   const pickableChanges = useMemo(() => flattenStackChanges(stack), [stack]);
+  const pickableBookmarks = useMemo(
+    () => flattenStackBookmarks(stack),
+    [stack],
+  );
 
   const closePicker = useCallback(() => {
     setStackAction(null);
     setSquashSource(null);
+    setBookmarkMoveTarget(null);
   }, []);
 
   const runStackAction = useCallback(
@@ -202,13 +211,26 @@ export function App() {
         );
         return;
       }
+      if (stackAction === "bookmark-move" && bookmarkMoveTarget) {
+        closePicker();
+        void runStackAction(
+          {
+            action: "bookmark-move",
+            bookmarkName: bookmarkMoveTarget,
+            toChangeId: change.changeId,
+          },
+          `Move bookmark ${bookmarkMoveTarget} to ${changeLabel(change)}?`,
+        );
+        return;
+      }
       closePicker();
+      if (stackAction !== "abandon" && stackAction !== "absorb") return;
       void runStackAction(
         stackActionRequest(stackAction, change),
         `${STACK_ACTION_CONFIG[stackAction].confirmVerb} ${changeLabel(change)}?`,
       );
     },
-    [stackAction, squashSource, closePicker, runStackAction],
+    [stackAction, squashSource, bookmarkMoveTarget, closePicker, runStackAction],
   );
 
   const getPickerDisabledReason = useCallback(
@@ -223,9 +245,13 @@ export function App() {
   );
 
   const pickerConfig = stackAction
-    ? squashSource
-      ? squashIntoConfig(squashSource)
-      : STACK_ACTION_CONFIG[stackAction]
+    ? stackAction === "bookmark-move" && bookmarkMoveTarget
+      ? bookmarkMoveDestinationConfig(bookmarkMoveTarget)
+      : squashSource
+        ? squashIntoConfig(squashSource)
+        : stackAction === "bookmark-move"
+          ? null
+          : STACK_ACTION_CONFIG[stackAction]
     : null;
 
   useKeyboardShortcuts({
@@ -330,6 +356,16 @@ export function App() {
         run: () => runRepoAction({ action: "new" }, { viewWorkingCopy: true }),
       },
       {
+        id: "bookmark-move",
+        label: "Move bookmark...",
+        keywords: ["bookmark", "backwards", "jj"],
+        detail: pickableBookmarks.length
+          ? "Pick bookmark, then destination"
+          : "No bookmarks in stack",
+        disabled: pickableBookmarks.length === 0,
+        run: () => setStackAction("bookmark-move"),
+      },
+      {
         id: "tug",
         label: "Tug bookmarks",
         keywords: ["bookmark", "move", "pushable", "jj"],
@@ -353,6 +389,7 @@ export function App() {
     ],
     [
       handleRefresh,
+      pickableBookmarks.length,
       pickableChanges.length,
       repo,
       runRepoAction,
@@ -431,10 +468,28 @@ export function App() {
           actions={paletteActions}
           onOpenChange={setPaletteOpen}
         />
-        {pickerConfig && (
+        {stackAction === "bookmark-move" && !bookmarkMoveTarget ? (
+          <BookmarkPicker
+            open
+            title="Move Bookmark"
+            detail="Pick the bookmark to move. You'll pick the destination change next."
+            bookmarks={pickableBookmarks}
+            actionLabel="Bookmarks"
+            onOpenChange={(open) => {
+              if (!open) closePicker();
+            }}
+            onPick={(bookmark) => setBookmarkMoveTarget(bookmark.name)}
+          />
+        ) : pickerConfig ? (
           <CommitPicker
-            // Remount between squash steps so search and selection reset.
-            key={squashSource ? "squash-destination" : stackAction}
+            // Remount between squash/bookmark-move steps so search resets.
+            key={
+              squashSource
+                ? "squash-destination"
+                : bookmarkMoveTarget
+                  ? `bookmark-move-${bookmarkMoveTarget}`
+                  : stackAction
+            }
             open
             title={pickerConfig.title}
             detail={pickerConfig.detail}
@@ -447,17 +502,22 @@ export function App() {
             }}
             onPick={handlePick}
           />
-        )}
+        ) : null}
         {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
       </div>
     </>
   );
 }
 
-type StackActionKind = "abandon" | "absorb" | "squash" | "describe";
+type PickerActionKind =
+  | "abandon"
+  | "absorb"
+  | "squash"
+  | "describe"
+  | "bookmark-move";
 
 const STACK_ACTION_CONFIG: Record<
-  StackActionKind,
+  Exclude<PickerActionKind, "bookmark-move">,
   {
     title: string;
     detail: string;
@@ -493,6 +553,18 @@ const STACK_ACTION_CONFIG: Record<
     confirmVerb: "Describe",
   },
 };
+
+function bookmarkMoveDestinationConfig(bookmarkName: string): {
+  title: string;
+  detail: string;
+  actionLabel: string;
+} {
+  return {
+    title: "Move Bookmark: Pick Destination",
+    detail: `Move ${bookmarkName} to the destination change.`,
+    actionLabel: "Move to",
+  };
+}
 
 function squashIntoConfig(source: ChangeInfo): {
   title: string;
