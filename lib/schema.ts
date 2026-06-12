@@ -43,8 +43,8 @@ export const BookmarkRowSchema = z.object({
   name: z.string(),
   remote: z.string().optional(),
   /** Commit ids the ref points at (>1 means conflicted ref). */
-  target: z.array(z.string()),
-  tracking_target: z.array(z.string()).optional(),
+  target: z.array(z.string().nullable()),
+  tracking_target: z.array(z.string().nullable()).optional(),
 });
 export type BookmarkRow = z.infer<typeof BookmarkRowSchema>;
 

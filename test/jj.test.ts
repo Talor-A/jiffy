@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { revsetTouchesWorkingCopy } from "../lib/jj";
+import { BookmarkRowSchema, parseJsonLines } from "../lib/schema";
 import { TestRepo } from "./fixtures";
 
 describe("revsetTouchesWorkingCopy", () => {
@@ -13,6 +14,30 @@ describe("revsetTouchesWorkingCopy", () => {
     expect(revsetTouchesWorkingCopy("main@origin")).toBe(false);
     expect(revsetTouchesWorkingCopy("trunk()")).toBe(false);
     expect(revsetTouchesWorkingCopy("xyzkwpql")).toBe(false);
+  });
+});
+
+describe("BookmarkRowSchema", () => {
+  test("parses deleted bookmark rows with null targets", () => {
+    const rows = parseJsonLines(
+      BookmarkRowSchema,
+      [
+        JSON.stringify({
+          name: "deleted-feature",
+          target: [null],
+        }),
+        JSON.stringify({
+          name: "main",
+          remote: "origin",
+          target: ["1ca273dba559521f6f71d3505fef03d9b7bdb513"],
+        }),
+      ].join("\n"),
+    );
+
+    expect(rows[0]!.target).toEqual([null]);
+    expect(rows[1]!.target).toEqual([
+      "1ca273dba559521f6f71d3505fef03d9b7bdb513",
+    ]);
   });
 });
 
