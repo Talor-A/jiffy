@@ -189,6 +189,16 @@ export class Jj {
     });
   }
 
+  /** Move bookmarks to the nearest pushable revision (`jj tug`). */
+  async tug(): Promise<void> {
+    await this.run(["tug"], { snapshot: true });
+  }
+
+  /** Push tracking bookmarks to the git remote. */
+  async gitPush(): Promise<void> {
+    await this.run(["git", "push"], { snapshot: true });
+  }
+
   /** Snapshot the working copy so subsequent reads see live file edits. */
   async snapshot(): Promise<void> {
     await this.run(["log", "-r", "@", "-n", "1", "-T", "change_id"], {

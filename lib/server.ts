@@ -244,6 +244,14 @@ export function createServer(
         });
         return null;
       }
+      case "tug": {
+        await jj.tug();
+        return null;
+      }
+      case "git-push": {
+        await jj.gitPush();
+        return null;
+      }
     }
   };
 

@@ -255,6 +255,8 @@ export const ActionRequestSchema = z.discriminatedUnion("action", [
     message: z.string().min(1).optional(),
     useDestinationMessage: z.boolean().optional(),
   }),
+  z.object({ action: z.literal("tug") }),
+  z.object({ action: z.literal("git-push") }),
 ]);
 export type ActionRequest = z.infer<typeof ActionRequestSchema>;
 

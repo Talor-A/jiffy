@@ -111,6 +111,32 @@ describe("/api/actions jj mutations", () => {
     const body = (await res.json()) as { error: string };
     expect(body.error).toContain("immutable");
   }, 30_000);
+
+  test("pushes outdated bookmarks to the git remote", async () => {
+    const { repo, post } = await actionFixture();
+    await repo.write("a.txt", "alpha\n");
+    await repo.commit("add alpha");
+    await repo.bookmark("feat-a");
+    await repo.push("feat-a");
+    await repo.write("b.txt", "bravo\n");
+    await repo.commit("add bravo");
+    await repo.jjRaw(["bookmark", "set", "feat-a", "-r", "@-"]);
+
+    const res = await post({ action: "git-push" });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+
+    const remote = await repo.jjRaw([
+      "log",
+      "-r",
+      "feat-a@origin",
+      "-n",
+      "1",
+      "-T",
+      "description",
+    ]);
+    expect(remote).toContain("add bravo");
+  }, 30_000);
 });
 
 async function actionFixture(): Promise<{

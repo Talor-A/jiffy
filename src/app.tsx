@@ -120,6 +120,20 @@ export function App() {
     await loadDiff(spec);
   }, [spec, loadStack, loadDiff]);
 
+  const runRepoAction = useCallback(
+    async (request: ActionRequest) => {
+      setActionError(null);
+      try {
+        await runAction(request);
+        await loadStack(false);
+        await loadDiff(spec);
+      } catch (e) {
+        setActionError((e as Error).message);
+      }
+    },
+    [loadStack, loadDiff, spec],
+  );
+
   const openPalette = useCallback(() => setPaletteOpen(true), []);
   const closePalette = useCallback(() => setPaletteOpen(false), []);
   const closeHelp = useCallback(() => setHelpOpen(false), []);
@@ -304,13 +318,28 @@ export function App() {
         run: () => {},
       },
       {
+        id: "tug",
+        label: "Tug bookmarks",
+        keywords: ["bookmark", "move", "pushable", "jj"],
+        detail: "jj tug",
+        run: () => runRepoAction({ action: "tug" }),
+      },
+      {
+        id: "git-push",
+        label: "Push to remote",
+        keywords: ["push", "origin", "github", "sync", "jj"],
+        detail: stack?.hasUnpushedWork ? "jj git push" : "Nothing to push",
+        disabled: !stack?.hasUnpushedWork,
+        run: () => runRepoAction({ action: "git-push" }),
+      },
+      {
         id: "refresh",
         label: "Refresh repository",
         keywords: ["reload", "snapshot", "jj"],
         run: handleRefresh,
       },
     ],
-    [handleRefresh, pickableChanges.length, repo],
+    [handleRefresh, pickableChanges.length, repo, runRepoAction, stack?.hasUnpushedWork],
   );
 
   return (
