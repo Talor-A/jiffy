@@ -190,10 +190,58 @@ export function createServer(
   ): Promise<string | null> => {
     switch (input.action) {
       case "describe": {
-        const change = await jj.resolve(input.changeId);
+        const change = await jj.resolve(input.changeId, { snapshot: true });
         if (!change) return `no revision matches: ${input.changeId}`;
         if (change.immutable) return "cannot describe an immutable change";
         await jj.describe(change.changeId, input.message);
+        return null;
+      }
+      case "abandon": {
+        const changes = await Promise.all(
+          input.changeIds.map((changeId) => jj.resolve(changeId, { snapshot: true })),
+        );
+        const missing = input.changeIds[changes.findIndex((change) => !change)];
+        if (missing) return `no revision matches: ${missing}`;
+        const immutable = changes.find((change) => change?.immutable);
+        if (immutable) return "cannot abandon an immutable change";
+        await jj.abandon(changes.map((change) => change!.changeId));
+        return null;
+      }
+      case "absorb": {
+        const change = await jj.resolve(input.changeId, { snapshot: true });
+        if (!change) return `no revision matches: ${input.changeId}`;
+        if (change.immutable) return "cannot absorb from an immutable change";
+        await jj.absorb(change.changeId, input.paths);
+        return null;
+      }
+      case "squash": {
+        if (!input.useDestinationMessage && !input.message) {
+          return "squash requires a message or useDestinationMessage";
+        }
+        const source = await jj.resolve(input.fromChangeId, { snapshot: true });
+        if (!source) return `no revision matches: ${input.fromChangeId}`;
+        if (source.immutable) return "cannot squash an immutable change";
+        if (source.parents.length !== 1 && !input.intoChangeId) {
+          return "cannot squash a merge change without an explicit destination";
+        }
+        if (input.intoChangeId) {
+          const destination = await jj.resolve(input.intoChangeId, {
+            snapshot: true,
+          });
+          if (!destination) return `no revision matches: ${input.intoChangeId}`;
+          if (destination.immutable) {
+            return "cannot squash into an immutable change";
+          }
+        } else {
+          const parent = await jj.resolve(source.parents[0]!, { snapshot: true });
+          if (parent?.immutable) return "cannot squash into an immutable change";
+        }
+        await jj.squash({
+          fromChangeId: source.changeId,
+          intoChangeId: input.intoChangeId,
+          message: input.message,
+          useDestinationMessage: input.useDestinationMessage,
+        });
         return null;
       }
     }

@@ -779,6 +779,38 @@ button.danger {
     color: var(--text);
     padding: 0 5px;
 }
+.commit-picker-panel {
+    width: min(680px, calc(100vw - 48px));
+}
+.commit-picker-header {
+    border-bottom: 1px solid var(--border);
+    padding: 14px 16px 12px;
+}
+.commit-picker-header h2 {
+    margin: 0 0 4px;
+}
+.commit-picker-header p {
+    color: var(--text-dim);
+    font-size: 12px;
+    margin: 0;
+}
+.commit-picker-list {
+    max-height: min(420px, 56vh);
+}
+.commit-picker-item {
+    align-items: flex-start;
+}
+.commit-picker-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.commit-picker-summary {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .inline-dot {
     display: inline-block;
     vertical-align: middle;

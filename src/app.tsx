@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
+  ActionRequest,
+  ChangeInfo,
   Comment,
   DiffResponse,
   RepoInfo,
@@ -15,6 +17,7 @@ import {
   listComments,
   onRepoChanged,
   refreshRepo,
+  runAction,
   segmentSpec,
   WC_SPEC,
   type DiffSpec,
@@ -22,6 +25,7 @@ import {
 import { DiffViewer } from "./DiffViewer";
 import { ChangeId } from "./ChangeId";
 import { CommandPalette, type PaletteAction } from "./CommandPalette";
+import { CommitPicker, flattenStackChanges } from "./CommitPicker";
 import { ContextMenu, copyItem, type MenuItem } from "./ContextMenu";
 import { HelpModal } from "./HelpModal";
 import { useKeyboardShortcuts } from "./keyboard";
@@ -36,6 +40,8 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [helpOpen, setHelpOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [stackAction, setStackAction] = useState<StackActionKind | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // While a comment draft is open we don't clobber the diff under the
   // user's cursor; the refetch happens when the draft closes.
@@ -113,6 +119,43 @@ export function App() {
   const closePalette = useCallback(() => setPaletteOpen(false), []);
   const closeHelp = useCallback(() => setHelpOpen(false), []);
 
+  const pickableChanges = useMemo(() => flattenStackChanges(stack), [stack]);
+
+  const runStackAction = useCallback(
+    async (kind: StackActionKind, change: ChangeInfo) => {
+      const config = STACK_ACTION_CONFIG[kind];
+      const summary =
+        change.description.split("\n", 1)[0]?.trim() || "(no description)";
+      const confirmed = window.confirm(
+        `${config.confirmVerb} ${change.changeIdPrefix} "${summary}"?\n\n` +
+          "This rewrites jj history. Use `jj op restore` if you need to undo it.",
+      );
+      if (!confirmed) return;
+
+      setActionError(null);
+      try {
+        await runAction(stackActionRequest(kind, change));
+        await loadStack(false);
+        setSpec(WC_SPEC);
+        await loadDiff(WC_SPEC);
+      } catch (e) {
+        setActionError((e as Error).message);
+      }
+    },
+    [loadStack, loadDiff],
+  );
+
+  const getPickerDisabledReason = useCallback(
+    (change: ChangeInfo): string | null => {
+      if (change.immutable) return "immutable";
+      if (stackAction === "squash" && change.parents.length !== 1) {
+        return "merge";
+      }
+      return null;
+    },
+    [stackAction],
+  );
+
   useKeyboardShortcuts({
     editingRef,
     paletteOpen,
@@ -167,10 +210,40 @@ export function App() {
         run: () => {},
       },
       {
-        id: "stack-operations",
-        label: "Stack operations...",
-        keywords: ["commit", "picker", "bookmark"],
-        detail: "Coming in #4",
+        id: "abandon-change",
+        label: "Abandon change...",
+        keywords: ["stack", "commit", "picker", "delete", "drop"],
+        detail: pickableChanges.length
+          ? "Pick one change"
+          : "No stack changes",
+        disabled: pickableChanges.length === 0,
+        run: () => setStackAction("abandon"),
+      },
+      {
+        id: "absorb-change",
+        label: "Absorb change...",
+        keywords: ["stack", "commit", "picker", "fold"],
+        detail: pickableChanges.length
+          ? "Pick source change"
+          : "No stack changes",
+        disabled: pickableChanges.length === 0,
+        run: () => setStackAction("absorb"),
+      },
+      {
+        id: "squash-change",
+        label: "Squash change into parent...",
+        keywords: ["stack", "commit", "picker", "combine"],
+        detail: pickableChanges.length
+          ? "Uses destination message"
+          : "No stack changes",
+        disabled: pickableChanges.length === 0,
+        run: () => setStackAction("squash"),
+      },
+      {
+        id: "split-change",
+        label: "Split change...",
+        keywords: ["stack", "commit", "picker", "hunk"],
+        detail: "Deferred to #9",
         disabled: true,
         run: () => {},
       },
@@ -183,7 +256,7 @@ export function App() {
         run: () => {},
       },
     ],
-    [handleRefresh, repo],
+    [handleRefresh, pickableChanges.length, repo],
   );
 
   return (
@@ -244,6 +317,7 @@ export function App() {
       </aside>
 
       <main className="main">
+        {actionError && <div className="error-banner">{actionError}</div>}
         {diffError && <div className="error-banner">{diffError}</div>}
         {loading && !diff && <div className="placeholder">loading…</div>}
         {diff && (
@@ -262,10 +336,77 @@ export function App() {
         actions={paletteActions}
         onOpenChange={setPaletteOpen}
       />
+      {stackAction && (
+        <CommitPicker
+          open={stackAction !== null}
+          title={STACK_ACTION_CONFIG[stackAction].title}
+          detail={STACK_ACTION_CONFIG[stackAction].detail}
+          changes={pickableChanges}
+          actionLabel={STACK_ACTION_CONFIG[stackAction].actionLabel}
+          getDisabledReason={getPickerDisabledReason}
+          onOpenChange={(open) => {
+            if (!open) setStackAction(null);
+          }}
+          onPick={(change) => {
+            const kind = stackAction;
+            setStackAction(null);
+            void runStackAction(kind, change);
+          }}
+        />
+      )}
       {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
     </div>
     </>
   );
+}
+
+type StackActionKind = "abandon" | "absorb" | "squash";
+
+const STACK_ACTION_CONFIG: Record<
+  StackActionKind,
+  {
+    title: string;
+    detail: string;
+    actionLabel: string;
+    confirmVerb: string;
+  }
+> = {
+  abandon: {
+    title: "Abandon Change",
+    detail: "Pick one mutable change to abandon. Descendants will be rebased by jj.",
+    actionLabel: "Abandon",
+    confirmVerb: "Abandon",
+  },
+  absorb: {
+    title: "Absorb Change",
+    detail: "Pick a source change; jj will move edits into the mutable ancestors that last touched those lines.",
+    actionLabel: "Absorb",
+    confirmVerb: "Absorb from",
+  },
+  squash: {
+    title: "Squash Into Parent",
+    detail: "Pick one non-merge change. Jiffy squashes it into its parent and keeps the parent's description.",
+    actionLabel: "Squash",
+    confirmVerb: "Squash",
+  },
+};
+
+function stackActionRequest(
+  kind: StackActionKind,
+  change: ChangeInfo,
+): ActionRequest {
+  switch (kind) {
+    case "abandon":
+      return { action: "abandon", changeIds: [change.changeId] };
+    case "absorb":
+      return { action: "absorb", changeId: change.changeId };
+    case "squash":
+      return {
+        action: "squash",
+        fromChangeId: change.changeId,
+        useDestinationMessage: true,
+      };
+  }
 }
 
 function repoDisplayName(repo: RepoInfo): string {
