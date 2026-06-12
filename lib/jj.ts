@@ -199,6 +199,11 @@ export class Jj {
     await this.run(["git", "push"], { snapshot: true });
   }
 
+  /** Create a new empty change on top of `@` and edit it. */
+  async newChange(): Promise<void> {
+    await this.run(["new"], { snapshot: true });
+  }
+
   /** Snapshot the working copy so subsequent reads see live file edits. */
   async snapshot(): Promise<void> {
     await this.run(["log", "-r", "@", "-n", "1", "-T", "change_id"], {

@@ -252,6 +252,10 @@ export function createServer(
         await jj.gitPush();
         return null;
       }
+      case "new": {
+        await jj.newChange();
+        return null;
+      }
     }
   };
 

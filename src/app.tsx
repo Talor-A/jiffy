@@ -121,12 +121,17 @@ export function App() {
   }, [spec, loadStack, loadDiff]);
 
   const runRepoAction = useCallback(
-    async (request: ActionRequest) => {
+    async (
+      request: ActionRequest,
+      opts: { viewWorkingCopy?: boolean } = {},
+    ) => {
       setActionError(null);
       try {
         await runAction(request);
         await loadStack(false);
-        await loadDiff(spec);
+        const target = opts.viewWorkingCopy ? WC_SPEC : spec;
+        if (opts.viewWorkingCopy) setSpec(WC_SPEC);
+        await loadDiff(target);
       } catch (e) {
         setActionError((e as Error).message);
       }
@@ -316,6 +321,13 @@ export function App() {
         detail: "Planned",
         disabled: true,
         run: () => {},
+      },
+      {
+        id: "new-change",
+        label: "New change",
+        keywords: ["stack", "commit", "empty", "jj"],
+        detail: "jj new",
+        run: () => runRepoAction({ action: "new" }, { viewWorkingCopy: true }),
       },
       {
         id: "tug",

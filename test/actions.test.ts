@@ -137,6 +137,21 @@ describe("/api/actions jj mutations", () => {
     ]);
     expect(remote).toContain("add bravo");
   }, 30_000);
+
+  test("creates a new empty change on top of @", async () => {
+    const { repo, post } = await actionFixture();
+    await repo.write("a.txt", "alpha\n");
+    await repo.commit("add alpha");
+    const before = await repo.jj.resolve("@", { snapshot: true });
+
+    const res = await post({ action: "new" });
+    expect(res.status).toBe(200);
+
+    const after = await repo.jj.resolve("@", { snapshot: true });
+    expect(after?.changeId).not.toBe(before?.changeId);
+    expect(after?.empty).toBe(true);
+    expect(after?.parents).toContain(before!.changeId);
+  }, 30_000);
 });
 
 async function actionFixture(): Promise<{
