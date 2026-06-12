@@ -42,6 +42,10 @@ export function App() {
   const [stackAction, setStackAction] = useState<StackActionKind | null>(null);
   // Squash picks twice: the source first, then the destination.
   const [squashSource, setSquashSource] = useState<ChangeInfo | null>(null);
+  const [pendingDescribe, setPendingDescribe] = useState<{
+    changeId: string;
+    description: string;
+  } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   // While a comment draft is open we don't clobber the diff under the
@@ -151,6 +155,15 @@ export function App() {
   const handlePick = useCallback(
     (change: ChangeInfo) => {
       if (!stackAction) return;
+      if (stackAction === "describe") {
+        closePicker();
+        setSpec(changeSpec(change));
+        setPendingDescribe({
+          changeId: change.changeId,
+          description: change.description,
+        });
+        return;
+      }
       if (stackAction === "squash") {
         if (!squashSource) {
           // First pick: hold the source; the picker stays open for the
@@ -244,6 +257,14 @@ export function App() {
         detail: "Coming in #5",
         disabled: true,
         run: () => {},
+      },
+      {
+        id: "describe-change",
+        label: "Describe change...",
+        keywords: ["stack", "commit", "picker", "message", "edit", "jj"],
+        detail: pickableChanges.length ? "Pick one change" : "No stack changes",
+        disabled: pickableChanges.length === 0,
+        run: () => setStackAction("describe"),
       },
       {
         id: "abandon-change",
@@ -352,6 +373,8 @@ export function App() {
               diff={diff}
               comments={comments.filter((c) => c.specKey === spec.key)}
               allCommentCount={comments.length}
+              pendingDescribe={pendingDescribe}
+              onPendingDescribeHandled={() => setPendingDescribe(null)}
               onCommentsChanged={reloadComments}
               onEditingChanged={setEditing}
             />
@@ -385,7 +408,7 @@ export function App() {
   );
 }
 
-type StackActionKind = "abandon" | "absorb" | "squash";
+type StackActionKind = "abandon" | "absorb" | "squash" | "describe";
 
 const STACK_ACTION_CONFIG: Record<
   StackActionKind,
@@ -416,6 +439,12 @@ const STACK_ACTION_CONFIG: Record<
       "Pick the change to squash. You'll pick the destination it folds into next.",
     actionLabel: "Squash",
     confirmVerb: "Squash",
+  },
+  describe: {
+    title: "Describe Change",
+    detail: "Pick a mutable change to edit its description.",
+    actionLabel: "Describe",
+    confirmVerb: "Describe",
   },
 };
 

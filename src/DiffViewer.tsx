@@ -127,6 +127,8 @@ export function DiffViewer({
   diff,
   comments,
   allCommentCount,
+  pendingDescribe,
+  onPendingDescribeHandled,
   onCommentsChanged,
   onEditingChanged,
 }: {
@@ -135,6 +137,9 @@ export function DiffViewer({
   /** Comments scoped to this spec. */
   comments: Comment[];
   allCommentCount: number;
+  /** Open the describe editor once this change's diff is shown (command palette). */
+  pendingDescribe?: DescribeTarget | null;
+  onPendingDescribeHandled?: () => void;
   onCommentsChanged: () => Promise<void>;
   onEditingChanged: (editing: boolean) => void;
 }) {
@@ -163,6 +168,14 @@ export function DiffViewer({
     setDraft(null);
     setDescribing(null);
   }, [spec.key]);
+
+  useEffect(() => {
+    if (!pendingDescribe || diff.change?.changeId !== pendingDescribe.changeId) {
+      return;
+    }
+    setDescribing(pendingDescribe);
+    onPendingDescribeHandled?.();
+  }, [pendingDescribe, diff.change?.changeId, onPendingDescribeHandled]);
 
   // Either open editor defers diff refetches (see App.setEditing).
   useEffect(() => {
