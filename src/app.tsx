@@ -1,7 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
-import { WC_SPEC } from "./api";
+import { useCallback, useState } from "react";
 import { DiffViewer } from "./DiffViewer";
-import { CommandPalette, type PaletteAction } from "./CommandPalette";
+import { CommandPalette } from "./CommandPalette";
 import { StackPanel } from "./StackPanel";
 import { StackActionPickers } from "./StackActionPickers";
 import { HelpModal } from "./HelpModal";
@@ -9,6 +8,7 @@ import { formatPageTitle } from "./pageTitle";
 import { useKeyboardShortcuts } from "./keyboard";
 import { useRepoData } from "./useRepoData";
 import { useStackPicker } from "./useStackPicker";
+import { usePaletteActions } from "./usePaletteActions";
 
 export function App() {
   const [helpOpen, setHelpOpen] = useState(false);
@@ -68,139 +68,17 @@ export function App() {
     onCloseHelp: closeHelp,
   });
 
-  const paletteActions = useMemo<PaletteAction[]>(
-    () => [
-      {
-        id: "working-copy",
-        label: "View local changes",
-        keywords: ["diff", "wc", "at"],
-        run: () => setSpec(WC_SPEC),
-      },
-      {
-        id: "open-help",
-        label: "Open help",
-        keywords: ["keyboard", "shortcuts", "docs"],
-        run: () => setHelpOpen(true),
-      },
-      {
-        id: "open-github",
-        label: "Open repository on GitHub",
-        keywords: ["repo", "remote", "browser"],
-        detail: repo?.github ? repo.github.nameWithOwner : "No GitHub remote",
-        disabled: !repo?.github,
-        run: () => {
-          if (repo?.github)
-            window.open(repo.github.url, "_blank", "noreferrer");
-        },
-      },
-      {
-        id: "open-pr-url",
-        label: "Open PR by URL",
-        keywords: ["review", "external", "github"],
-        detail: "Coming in #5",
-        disabled: true,
-        run: () => {},
-      },
-      {
-        id: "describe-change",
-        label: "Describe change...",
-        keywords: ["stack", "commit", "picker", "message", "edit", "jj"],
-        detail: pickableChanges.length ? "Pick one change" : "No stack changes",
-        disabled: pickableChanges.length === 0,
-        run: () => setStackAction("describe"),
-      },
-      {
-        id: "abandon-change",
-        label: "Abandon change...",
-        keywords: ["stack", "commit", "picker", "delete", "drop"],
-        detail: pickableChanges.length ? "Pick one change" : "No stack changes",
-        disabled: pickableChanges.length === 0,
-        run: () => setStackAction("abandon"),
-      },
-      {
-        id: "absorb-change",
-        label: "Absorb change...",
-        keywords: ["stack", "commit", "picker", "fold"],
-        detail: pickableChanges.length
-          ? "Pick source change"
-          : "No stack changes",
-        disabled: pickableChanges.length === 0,
-        run: () => setStackAction("absorb"),
-      },
-      {
-        id: "squash-change",
-        label: "Squash change...",
-        keywords: ["stack", "commit", "picker", "combine", "parent", "fold"],
-        detail: pickableChanges.length
-          ? "Pick source, then destination"
-          : "No stack changes",
-        disabled: pickableChanges.length === 0,
-        run: () => setStackAction("squash"),
-      },
-      {
-        id: "split-change",
-        label: "Split change...",
-        keywords: ["stack", "commit", "picker", "hunk"],
-        detail: "Deferred to #9",
-        disabled: true,
-        run: () => {},
-      },
-      {
-        id: "launch-agent",
-        label: "Launch agent...",
-        keywords: ["feedback", "comments"],
-        detail: "Planned",
-        disabled: true,
-        run: () => {},
-      },
-      {
-        id: "new-change",
-        label: "New change",
-        keywords: ["stack", "commit", "empty", "jj"],
-        detail: "jj new",
-        run: () => runRepoAction({ action: "new" }, { viewWorkingCopy: true }),
-      },
-      {
-        id: "bookmark-move",
-        label: "Move bookmark...",
-        keywords: ["bookmark", "backwards", "jj"],
-        detail: pickableBookmarks.length
-          ? "Pick bookmark, then destination"
-          : "No bookmarks in stack",
-        disabled: pickableBookmarks.length === 0,
-        run: () => setStackAction("bookmark-move"),
-      },
-      {
-        id: "tug",
-        label: "Tug bookmarks",
-        keywords: ["bookmark", "move", "pushable", "jj"],
-        detail: "jj tug",
-        run: () => runRepoAction({ action: "tug" }),
-      },
-      {
-        id: "git-push",
-        label: "Push to remote",
-        keywords: ["push", "origin", "github", "sync", "jj"],
-        detail: stack?.hasUnpushedWork ? "jj git push" : "Nothing to push",
-        disabled: !stack?.hasUnpushedWork,
-        run: () => runRepoAction({ action: "git-push" }),
-      },
-      {
-        id: "refresh",
-        label: "Refresh repository",
-        keywords: ["reload", "snapshot", "jj"],
-        run: handleRefresh,
-      },
-    ],
-    [
-      handleRefresh,
-      pickableBookmarks.length,
-      pickableChanges.length,
-      repo,
-      runRepoAction,
-      stack?.hasUnpushedWork,
-    ],
-  );
+  const paletteActions = usePaletteActions({
+    repo,
+    stack,
+    pickableChangesCount: pickableChanges.length,
+    pickableBookmarksCount: pickableBookmarks.length,
+    setSpec,
+    setHelpOpen,
+    setStackAction,
+    runRepoAction,
+    handleRefresh,
+  });
 
   return (
     <>
