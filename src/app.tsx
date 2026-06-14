@@ -1,37 +1,18 @@
 import { useCallback, useMemo, useState } from "react";
-import type { ActionRequest, ChangeInfo } from "../lib/schema";
-import { changeSpec, runAction, WC_SPEC } from "./api";
+import { WC_SPEC } from "./api";
 import { DiffViewer } from "./DiffViewer";
 import { CommandPalette, type PaletteAction } from "./CommandPalette";
 import { StackPanel } from "./StackPanel";
-import { BookmarkPicker, flattenStackBookmarks } from "./BookmarkPicker";
-import { CommitPicker, flattenStackChanges } from "./CommitPicker";
+import { StackActionPickers } from "./StackActionPickers";
 import { HelpModal } from "./HelpModal";
 import { formatPageTitle } from "./pageTitle";
-import {
-  bookmarkMoveDestinationConfig,
-  changeLabel,
-  squashIntoConfig,
-  STACK_ACTION_CONFIG,
-  stackActionRequest,
-  type PickerActionKind,
-} from "./stackPicker";
 import { useKeyboardShortcuts } from "./keyboard";
 import { useRepoData } from "./useRepoData";
+import { useStackPicker } from "./useStackPicker";
 
 export function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [stackAction, setStackAction] = useState<PickerActionKind | null>(null);
-  // Squash picks twice: the source first, then the destination.
-  const [squashSource, setSquashSource] = useState<ChangeInfo | null>(null);
-  const [bookmarkMoveTarget, setBookmarkMoveTarget] = useState<string | null>(
-    null,
-  );
-  const [pendingDescribe, setPendingDescribe] = useState<{
-    changeId: string;
-    description: string;
-  } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const {
@@ -52,122 +33,31 @@ export function App() {
     loadDiff,
   } = useRepoData({ onActionError: setActionError });
 
+  const {
+    stackAction,
+    setStackAction,
+    pendingDescribe,
+    clearPendingDescribe,
+    pickableChanges,
+    pickableBookmarks,
+    squashSource,
+    bookmarkMoveTarget,
+    pickerConfig,
+    closePicker,
+    handlePick,
+    getPickerDisabledReason,
+    setBookmarkMoveTarget,
+  } = useStackPicker({
+    stack,
+    setSpec,
+    loadStack,
+    loadDiff,
+    onActionError: setActionError,
+  });
+
   const openPalette = useCallback(() => setPaletteOpen(true), []);
   const closePalette = useCallback(() => setPaletteOpen(false), []);
   const closeHelp = useCallback(() => setHelpOpen(false), []);
-
-  const pickableChanges = useMemo(() => flattenStackChanges(stack), [stack]);
-  const pickableBookmarks = useMemo(
-    () => flattenStackBookmarks(stack),
-    [stack],
-  );
-
-  const closePicker = useCallback(() => {
-    setStackAction(null);
-    setSquashSource(null);
-    setBookmarkMoveTarget(null);
-  }, []);
-
-  const runStackAction = useCallback(
-    async (request: ActionRequest, confirmation: string) => {
-      const confirmed = window.confirm(
-        `${confirmation}\n\n` +
-          "This rewrites jj history. Use `jj op restore` if you need to undo it.",
-      );
-      if (!confirmed) return;
-
-      setActionError(null);
-      try {
-        await runAction(request);
-        await loadStack(false);
-        setSpec(WC_SPEC);
-        await loadDiff(WC_SPEC);
-      } catch (e) {
-        setActionError((e as Error).message);
-      }
-    },
-    [loadStack, loadDiff, setSpec],
-  );
-
-  const handlePick = useCallback(
-    (change: ChangeInfo) => {
-      if (!stackAction) return;
-      if (stackAction === "describe") {
-        closePicker();
-        setSpec(changeSpec(change));
-        setPendingDescribe({
-          changeId: change.changeId,
-          description: change.description,
-        });
-        return;
-      }
-      if (stackAction === "squash") {
-        if (!squashSource) {
-          // First pick: hold the source; the picker stays open for the
-          // destination pick.
-          setSquashSource(change);
-          return;
-        }
-        closePicker();
-        void runStackAction(
-          {
-            action: "squash",
-            fromChangeId: squashSource.changeId,
-            intoChangeId: change.changeId,
-            useDestinationMessage: true,
-          },
-          `Squash ${changeLabel(squashSource)} into ${changeLabel(change)}?`,
-        );
-        return;
-      }
-      if (stackAction === "bookmark-move" && bookmarkMoveTarget) {
-        closePicker();
-        void runStackAction(
-          {
-            action: "bookmark-move",
-            bookmarkName: bookmarkMoveTarget,
-            toChangeId: change.changeId,
-          },
-          `Move bookmark ${bookmarkMoveTarget} to ${changeLabel(change)}?`,
-        );
-        return;
-      }
-      closePicker();
-      if (stackAction !== "abandon" && stackAction !== "absorb") return;
-      void runStackAction(
-        stackActionRequest(stackAction, change),
-        `${STACK_ACTION_CONFIG[stackAction].confirmVerb} ${changeLabel(change)}?`,
-      );
-    },
-    [
-      stackAction,
-      squashSource,
-      bookmarkMoveTarget,
-      closePicker,
-      runStackAction,
-    ],
-  );
-
-  const getPickerDisabledReason = useCallback(
-    (change: ChangeInfo): string | null => {
-      if (change.immutable) return "immutable";
-      if (squashSource && change.changeId === squashSource.changeId) {
-        return "source";
-      }
-      return null;
-    },
-    [squashSource],
-  );
-
-  const pickerConfig = stackAction
-    ? stackAction === "bookmark-move" && bookmarkMoveTarget
-      ? bookmarkMoveDestinationConfig(bookmarkMoveTarget)
-      : squashSource
-        ? squashIntoConfig(squashSource)
-        : stackAction === "bookmark-move"
-          ? null
-          : STACK_ACTION_CONFIG[stackAction]
-    : null;
 
   useKeyboardShortcuts({
     editingRef,
@@ -372,7 +262,7 @@ export function App() {
               comments={comments.filter((c) => c.specKey === spec.key)}
               allCommentCount={comments.length}
               pendingDescribe={pendingDescribe}
-              onPendingDescribeHandled={() => setPendingDescribe(null)}
+              onPendingDescribeHandled={clearPendingDescribe}
               onCommentsChanged={reloadComments}
               onEditingChanged={setEditing}
             />
@@ -383,41 +273,18 @@ export function App() {
           actions={paletteActions}
           onOpenChange={setPaletteOpen}
         />
-        {stackAction === "bookmark-move" && !bookmarkMoveTarget ? (
-          <BookmarkPicker
-            open
-            title="Move Bookmark"
-            detail="Pick the bookmark to move. You'll pick the destination change next."
-            bookmarks={pickableBookmarks}
-            actionLabel="Bookmarks"
-            onOpenChange={(open) => {
-              if (!open) closePicker();
-            }}
-            onPick={(bookmark) => setBookmarkMoveTarget(bookmark.name)}
-          />
-        ) : pickerConfig ? (
-          <CommitPicker
-            // Remount between squash/bookmark-move steps so search resets.
-            key={
-              squashSource
-                ? "squash-destination"
-                : bookmarkMoveTarget
-                  ? `bookmark-move-${bookmarkMoveTarget}`
-                  : stackAction
-            }
-            open
-            title={pickerConfig.title}
-            detail={pickerConfig.detail}
-            changes={pickableChanges}
-            actionLabel={pickerConfig.actionLabel}
-            defaultChangeId={squashSource?.parents[0]}
-            getDisabledReason={getPickerDisabledReason}
-            onOpenChange={(open) => {
-              if (!open) closePicker();
-            }}
-            onPick={handlePick}
-          />
-        ) : null}
+        <StackActionPickers
+          stackAction={stackAction}
+          squashSource={squashSource}
+          bookmarkMoveTarget={bookmarkMoveTarget}
+          pickerConfig={pickerConfig}
+          pickableChanges={pickableChanges}
+          pickableBookmarks={pickableBookmarks}
+          closePicker={closePicker}
+          handlePick={handlePick}
+          getPickerDisabledReason={getPickerDisabledReason}
+          setBookmarkMoveTarget={setBookmarkMoveTarget}
+        />
         {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
       </div>
     </>
