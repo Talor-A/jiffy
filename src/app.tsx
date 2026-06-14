@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react";
-import { DiffViewer } from "./DiffViewer";
 import { CommandPalette } from "./CommandPalette";
-import { StackPanel } from "./StackPanel";
+import { AppMain, AppSidebar } from "./AppLayout";
 import { StackActionPickers } from "./StackActionPickers";
 import { HelpModal } from "./HelpModal";
 import { formatPageTitle } from "./pageTitle";
@@ -84,68 +83,26 @@ export function App() {
     <>
       <title>{formatPageTitle(spec.label, repo)}</title>
       <div className="app">
-        <aside className="sidebar">
-          <header className="repo-header">
-            <h1>jiffy</h1>
-            <button
-              className="ghost help-button"
-              title="what is this?"
-              onClick={() => setHelpOpen(true)}
-            >
-              ?
-            </button>
-            {repo && (
-              <div className="repo-name" title={repo.root}>
-                {repo.github ? (
-                  <a href={repo.github.url} target="_blank" rel="noreferrer">
-                    {repo.github.nameWithOwner}
-                  </a>
-                ) : (
-                  repo.root.split("/").pop()
-                )}
-              </div>
-            )}
-            {stack?.hasUnpushedWork && (
-              <span
-                className="badge badge-unpushed"
-                title="Local work not on the remote yet"
-              >
-                unpushed work
-              </span>
-            )}
-          </header>
-
-          {stack && (
-            <StackPanel
-              stack={stack}
-              activeKey={spec.key}
-              comments={comments}
-              onSelect={setSpec}
-            />
-          )}
-
-          {/*<footer className="sidebar-footer">
-
-          </footer>*/}
-        </aside>
-
-        <main className="main">
-          {actionError && <div className="error-banner">{actionError}</div>}
-          {diffError && <div className="error-banner">{diffError}</div>}
-          {loading && !diff && <div className="placeholder">loading…</div>}
-          {diff && (
-            <DiffViewer
-              spec={spec}
-              diff={diff}
-              comments={comments.filter((c) => c.specKey === spec.key)}
-              allCommentCount={comments.length}
-              pendingDescribe={pendingDescribe}
-              onPendingDescribeHandled={clearPendingDescribe}
-              onCommentsChanged={reloadComments}
-              onEditingChanged={setEditing}
-            />
-          )}
-        </main>
+        <AppSidebar
+          repo={repo}
+          stack={stack}
+          spec={spec}
+          comments={comments}
+          onSelect={setSpec}
+          onOpenHelp={() => setHelpOpen(true)}
+        />
+        <AppMain
+          actionError={actionError}
+          diffError={diffError}
+          loading={loading}
+          spec={spec}
+          diff={diff}
+          comments={comments}
+          pendingDescribe={pendingDescribe}
+          onPendingDescribeHandled={clearPendingDescribe}
+          onCommentsChanged={reloadComments}
+          onEditingChanged={setEditing}
+        />
         <CommandPalette
           open={paletteOpen}
           actions={paletteActions}
@@ -168,4 +125,3 @@ export function App() {
     </>
   );
 }
-
