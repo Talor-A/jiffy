@@ -25,6 +25,7 @@ import { StackPanel } from "./StackPanel";
 import { BookmarkPicker, flattenStackBookmarks } from "./BookmarkPicker";
 import { CommitPicker, flattenStackChanges } from "./CommitPicker";
 import { HelpModal } from "./HelpModal";
+import { formatPageTitle } from "./pageTitle";
 import { useKeyboardShortcuts } from "./keyboard";
 
 export function App() {
@@ -597,15 +598,5 @@ function stackActionRequest(
     case "absorb":
       return { action: "absorb", changeId: change.changeId };
   }
-}
-
-function repoDisplayName(repo: RepoInfo): string {
-  return repo.github?.nameWithOwner ?? repo.root.split("/").pop() ?? repo.root;
-}
-
-function formatPageTitle(viewLabel: string, repo: RepoInfo | null): string {
-  return [viewLabel, repo ? repoDisplayName(repo) : null, "jiffy"]
-    .filter(Boolean)
-    .join(" · ");
 }
 
