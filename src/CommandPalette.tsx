@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import { Command } from "cmdk";
+import { SearchPicker } from "./SearchPicker";
 
 export interface PaletteAction {
   id: string;
@@ -19,12 +19,6 @@ export function CommandPalette({
   actions: PaletteAction[];
   onOpenChange: (open: boolean) => void;
 }) {
-  const [search, setSearch] = useState("");
-
-  useEffect(() => {
-    if (!open) setSearch("");
-  }, [open]);
-
   const runAction = (action: PaletteAction) => {
     if (action.disabled) return;
     onOpenChange(false);
@@ -32,27 +26,14 @@ export function CommandPalette({
   };
 
   return (
-    <Command.Dialog
+    <SearchPicker.Root
       open={open}
+      title="Jiffy command palette"
       onOpenChange={onOpenChange}
-      label="Jiffy command palette"
-      loop
-      vimBindings={false}
-      overlayClassName="modal-overlay command-overlay"
-      contentClassName="modal-panel command-panel"
     >
-      <Command.Input
-        autoFocus
-        className="command-input"
-        placeholder="Search commands..."
-        value={search}
-        onValueChange={setSearch}
-      />
-      <Command.List className="command-list">
-        <Command.Empty className="command-empty">
-          No commands found.
-        </Command.Empty>
-        <Command.Group heading="Commands" className="command-group">
+      <SearchPicker.Input placeholder="Search commands..." />
+      <SearchPicker.List emptyMessage="No commands found.">
+        <SearchPicker.Group heading="Commands">
           {actions.map((action) => (
             <Command.Item
               key={action.id}
@@ -68,17 +49,9 @@ export function CommandPalette({
               )}
             </Command.Item>
           ))}
-        </Command.Group>
-      </Command.List>
-      <div className="command-footer">
-        <kbd>↑</kbd>
-        <kbd>↓</kbd>
-        <span>navigate</span>
-        <kbd>Enter</kbd>
-        <span>run</span>
-        <kbd>Esc</kbd>
-        <span>close</span>
-      </div>
-    </Command.Dialog>
+        </SearchPicker.Group>
+      </SearchPicker.List>
+      <SearchPicker.Footer enterLabel="run" />
+    </SearchPicker.Root>
   );
 }

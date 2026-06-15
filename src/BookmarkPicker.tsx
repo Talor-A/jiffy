@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Command } from "cmdk";
 import type { ChangeInfo, StackView } from "../lib/schema";
 import { ChangeId } from "./ChangeId";
 import { summaryLine } from "../lib/stack";
+import { SearchPicker } from "./SearchPicker";
 
 export interface PickableBookmark {
   name: string;
@@ -51,12 +52,6 @@ export function BookmarkPicker({
   onPick: (bookmark: PickableBookmark) => void;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [search, setSearch] = useState("");
-
-  useEffect(() => {
-    if (!open) setSearch("");
-  }, [open]);
-
   const searchableBookmarks = useMemo(
     () =>
       bookmarks.map((item) => ({
@@ -72,32 +67,20 @@ export function BookmarkPicker({
   }, [searchableBookmarks, defaultBookmark]);
 
   return (
-    <Command.Dialog
+    <SearchPicker.Root
       open={open}
-      onOpenChange={onOpenChange}
-      label={title}
-      loop
+      title={title}
       defaultValue={defaultValue}
-      vimBindings={false}
-      overlayClassName="modal-overlay command-overlay"
-      contentClassName="modal-panel command-panel commit-picker-panel"
+      panelClassName="modal-panel command-panel commit-picker-panel"
+      onOpenChange={onOpenChange}
     >
-      <div className="commit-picker-header">
-        <h2>{title}</h2>
-        <p>{detail}</p>
-      </div>
-      <Command.Input
-        autoFocus
-        className="command-input"
-        placeholder="Search bookmarks..."
-        value={search}
-        onValueChange={setSearch}
-      />
-      <Command.List className="command-list commit-picker-list">
-        <Command.Empty className="command-empty">
-          No bookmarks found.
-        </Command.Empty>
-        <Command.Group heading={actionLabel} className="command-group">
+      <SearchPicker.Header title={title} detail={detail} />
+      <SearchPicker.Input placeholder="Search bookmarks..." />
+      <SearchPicker.List
+        emptyMessage="No bookmarks found."
+        listClassName="command-list commit-picker-list"
+      >
+        <SearchPicker.Group heading={actionLabel}>
           {searchableBookmarks.map(({ name, segmentName, change, summary }) => (
             <Command.Item
               key={name}
@@ -115,17 +98,9 @@ export function BookmarkPicker({
               </span>
             </Command.Item>
           ))}
-        </Command.Group>
-      </Command.List>
-      <div className="command-footer">
-        <kbd>↑</kbd>
-        <kbd>↓</kbd>
-        <span>navigate</span>
-        <kbd>Enter</kbd>
-        <span>select</span>
-        <kbd>Esc</kbd>
-        <span>close</span>
-      </div>
-    </Command.Dialog>
+        </SearchPicker.Group>
+      </SearchPicker.List>
+      <SearchPicker.Footer />
+    </SearchPicker.Root>
   );
 }

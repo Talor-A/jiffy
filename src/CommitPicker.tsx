@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Command } from "cmdk";
 import type { ChangeInfo, StackView } from "../lib/schema";
 import { ChangeId } from "./ChangeId";
+import { SearchPicker } from "./SearchPicker";
 
 export interface PickableChange {
   change: ChangeInfo;
@@ -45,12 +46,6 @@ export function CommitPicker({
   onOpenChange: (open: boolean) => void;
   getDisabledReason?: (change: ChangeInfo) => string | null;
 }) {
-  const [search, setSearch] = useState("");
-
-  useEffect(() => {
-    if (!open) setSearch("");
-  }, [open]);
-
   const searchableChanges = useMemo(
     () =>
       changes.map((item) => {
@@ -77,32 +72,20 @@ export function CommitPicker({
   }, [searchableChanges, defaultChangeId]);
 
   return (
-    <Command.Dialog
+    <SearchPicker.Root
       open={open}
-      onOpenChange={onOpenChange}
-      label={title}
-      loop
+      title={title}
       defaultValue={defaultValue}
-      vimBindings={false}
-      overlayClassName="modal-overlay command-overlay"
-      contentClassName="modal-panel command-panel commit-picker-panel"
+      panelClassName="modal-panel command-panel commit-picker-panel"
+      onOpenChange={onOpenChange}
     >
-      <div className="commit-picker-header">
-        <h2>{title}</h2>
-        <p>{detail}</p>
-      </div>
-      <Command.Input
-        autoFocus
-        className="command-input"
-        placeholder="Search changes..."
-        value={search}
-        onValueChange={setSearch}
-      />
-      <Command.List className="command-list commit-picker-list">
-        <Command.Empty className="command-empty">
-          No changes found.
-        </Command.Empty>
-        <Command.Group heading={actionLabel} className="command-group">
+      <SearchPicker.Header title={title} detail={detail} />
+      <SearchPicker.Input placeholder="Search changes..." />
+      <SearchPicker.List
+        emptyMessage="No changes found."
+        listClassName="command-list commit-picker-list"
+      >
+        <SearchPicker.Group heading={actionLabel}>
           {searchableChanges.map(({ change, segmentName, summary }) => {
             const disabledReason = getDisabledReason?.(change);
             return (
@@ -133,17 +116,9 @@ export function CommitPicker({
               </Command.Item>
             );
           })}
-        </Command.Group>
-      </Command.List>
-      <div className="command-footer">
-        <kbd>↑</kbd>
-        <kbd>↓</kbd>
-        <span>navigate</span>
-        <kbd>Enter</kbd>
-        <span>select</span>
-        <kbd>Esc</kbd>
-        <span>close</span>
-      </div>
-    </Command.Dialog>
+        </SearchPicker.Group>
+      </SearchPicker.List>
+      <SearchPicker.Footer />
+    </SearchPicker.Root>
   );
 }
