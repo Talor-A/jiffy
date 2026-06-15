@@ -136,16 +136,20 @@ export class Jj {
 
   /** `jj diff --git` for a single revision (its parents -> itself). */
   async diffChange(revset: string): Promise<string> {
-    return this.run(["diff", "--git", "-r", revset], {
+    return this.run(["diff", "--git", "--ignore-space-change", "-r", revset], {
       snapshot: revsetTouchesWorkingCopy(revset),
     });
   }
 
   /** `jj diff --git` across an arbitrary range. */
   async diffRange(from: string, to: string): Promise<string> {
-    return this.run(["diff", "--git", "--from", from, "--to", to], {
-      snapshot: revsetTouchesWorkingCopy(from) || revsetTouchesWorkingCopy(to),
-    });
+    return this.run(
+      ["diff", "--git", "--ignore-space-change", "--from", from, "--to", to],
+      {
+        snapshot:
+          revsetTouchesWorkingCopy(from) || revsetTouchesWorkingCopy(to),
+      },
+    );
   }
 
   /** Set a change's description (snapshots so describing `@` keeps edits). */
