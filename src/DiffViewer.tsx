@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   parsePatchFiles,
   type FileDiffMetadata,
@@ -27,6 +27,7 @@ import {
   type DiffSpec,
 } from "./api";
 import { FileTreePanel } from "./FileTreePanel";
+import { TextAreaEditor } from "./TextAreaEditor";
 
 type AnnoMeta =
   | { kind: "thread"; comments: Comment[] }
@@ -72,30 +73,6 @@ function lineTextFor(
     return text?.replace(/\r?\n$/, "") ?? null;
   }
   return null;
-}
-
-/**
- * Ref callback that focuses an annotation textarea with the cursor at the
- * end. When the editor mounts, Pierre hasn't laid out the annotation row
- * yet, so an immediate focus() (or React's autoFocus) is a silent no-op on
- * the not-yet-focusable element. Retry on animation frames until focus
- * actually takes (bounded, in case the editor unmounts first).
- */
-function focusWhenConnected(el: HTMLTextAreaElement | null): void {
-  if (!el) return;
-  let attempts = 60;
-  const tryFocus = () => {
-    if (el.isConnected) {
-      el.focus();
-      const root = el.getRootNode() as Document | ShadowRoot;
-      if (root.activeElement === el) {
-        el.setSelectionRange(el.value.length, el.value.length);
-        return;
-      }
-    }
-    if (attempts-- > 0) requestAnimationFrame(tryFocus);
-  };
-  tryFocus();
 }
 
 /** Cap range snippets so exports stay readable for big drags. */
@@ -342,11 +319,31 @@ function summaryOf(endpoint: DiffEndpoint): string {
 
 /**
  * One diff endpoint: its summary line (skipped when it just repeats the
- * view label) plus the prefix-highlighted change id. Mutable endpoints are
- * double-clickable to edit the description; undescribed ones render a
- * placeholder so there's a click target.
+ * view label) plus the prefix-highlighted change id.
  */
-function Endpoint({
+function ImmutableEndpoint({
+  endpoint,
+  specLabel,
+}: {
+  endpoint: DiffEndpoint;
+  specLabel?: string;
+}) {
+  const summary = summaryOf(endpoint);
+  return (
+    <span className="endpoint">
+      {summary ? (
+        summary !== specLabel && (
+          <span className="endpoint-summary">{summary} </span>
+        )
+      ) : (
+        <span className="endpoint-summary placeholder">(no description) </span>
+      )}
+      <ChangeId id={endpoint.changeId} prefix={endpoint.changeIdPrefix} />
+    </span>
+  );
+}
+
+function DescribableEndpoint({
   endpoint,
   specLabel,
   onDescribe,
@@ -356,37 +353,25 @@ function Endpoint({
   onDescribe: (target: DescribeTarget) => void;
 }) {
   const summary = summaryOf(endpoint);
-  const describable = !endpoint.immutable;
-  const editProps = describable
-    ? {
-        title: "double-click to edit description",
-        onDoubleClick: () =>
-          onDescribe({
-            changeId: endpoint.changeId,
-            description: endpoint.description,
-          }),
-      }
-    : {};
+  const editProps = {
+    title: "double-click to edit description",
+    onDoubleClick: () =>
+      onDescribe({
+        changeId: endpoint.changeId,
+        description: endpoint.description,
+      }),
+  };
   return (
     <span className="endpoint">
       {summary ? (
         summary !== specLabel && (
-          <span
-            className={
-              describable ? "endpoint-summary describable" : "endpoint-summary"
-            }
-            {...editProps}
-          >
+          <span className="endpoint-summary describable" {...editProps}>
             {summary}{" "}
           </span>
         )
       ) : (
         <span
-          className={
-            describable
-              ? "endpoint-summary placeholder describable"
-              : "endpoint-summary placeholder"
-          }
+          className="endpoint-summary placeholder describable"
           {...editProps}
         >
           (no description){" "}
@@ -394,6 +379,27 @@ function Endpoint({
       )}
       <ChangeId id={endpoint.changeId} prefix={endpoint.changeIdPrefix} />
     </span>
+  );
+}
+
+function Endpoint({
+  endpoint,
+  specLabel,
+  onDescribe,
+}: {
+  endpoint: DiffEndpoint;
+  specLabel?: string;
+  onDescribe: (target: DescribeTarget) => void;
+}) {
+  if (endpoint.immutable) {
+    return <ImmutableEndpoint endpoint={endpoint} specLabel={specLabel} />;
+  }
+  return (
+    <DescribableEndpoint
+      endpoint={endpoint}
+      specLabel={specLabel}
+      onDescribe={onDescribe}
+    />
   );
 }
 
@@ -437,10 +443,6 @@ function DiffEndpoints({
   return null;
 }
 
-/**
- * Inline editor for a change description, shown in place of the diff title.
- * Saves via the actions API; the SSE-driven refetch repaints the header.
- */
 function DescribeEditor({
   target,
   onClose,
@@ -452,7 +454,6 @@ function DescribeEditor({
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
-    if (text.trim().length === 0) return;
     setSaving(true);
     try {
       await runAction({
@@ -467,31 +468,16 @@ function DescribeEditor({
   };
 
   return (
-    <div className="describe-editor">
-      <textarea
-        className="comment-input"
-        placeholder="Describe this change… (⌘⏎ to save)"
-        value={text}
-        autoFocus
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void save();
-          if (e.key === "Escape") onClose();
-        }}
-      />
-      <div className="comment-actions">
-        <button
-          className="primary"
-          disabled={saving || text.trim().length === 0}
-          onClick={() => void save()}
-        >
-          save
-        </button>
-        <button className="ghost" onClick={onClose}>
-          cancel
-        </button>
-      </div>
-    </div>
+    <TextAreaEditor
+      value={text}
+      onChange={setText}
+      onSave={save}
+      onCancel={onClose}
+      placeholder="Describe this change… (⌘⏎ to save)"
+      saveLabel="save"
+      saving={saving}
+      wrapperClassName="describe-editor"
+    />
   );
 }
 
@@ -627,9 +613,11 @@ function FileDiffCard({
       return (
         <CommentThread
           comments={meta.kind === "thread" ? meta.comments : []}
-          hasDraft={meta.kind === "draft" || lineDraft !== null}
-          onSave={onSaveDraft}
-          onCancel={onCloseDraft}
+          draftEditor={
+            meta.kind === "draft" || lineDraft !== null ? (
+              <CommentDraftEditor onSave={onSaveDraft} onCancel={onCloseDraft} />
+            ) : undefined
+          }
           onChanged={onCommentsChanged}
         />
       );
@@ -665,15 +653,11 @@ function FileDiffCard({
 
 function CommentThread({
   comments,
-  hasDraft,
-  onSave,
-  onCancel,
+  draftEditor,
   onChanged,
 }: {
   comments: Comment[];
-  hasDraft: boolean;
-  onSave: (text: string) => Promise<void>;
-  onCancel: () => void;
+  draftEditor?: ReactNode;
   onChanged: () => Promise<void>;
 }) {
   return (
@@ -681,8 +665,68 @@ function CommentThread({
       {comments.map((comment) => (
         <CommentCard key={comment.id} comment={comment} onChanged={onChanged} />
       ))}
-      {hasDraft && <CommentEditor onSave={onSave} onCancel={onCancel} />}
+      {draftEditor}
     </div>
+  );
+}
+
+function CommentDisplay({
+  comment,
+  onEdit,
+  onDelete,
+}: {
+  comment: Comment;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="comment-card">
+      {comment.endLine && (
+        <span className="range-chip">
+          lines {comment.line}–{comment.endLine}
+        </span>
+      )}
+      <div className="comment-text">{comment.text}</div>
+      <div className="comment-actions">
+        <button className="ghost" onClick={onEdit}>
+          edit
+        </button>
+        <button className="ghost danger" onClick={onDelete}>
+          delete
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CommentCardEditor({
+  comment,
+  onSaved,
+  onCancel,
+}: {
+  comment: Comment;
+  onSaved: () => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [text, setText] = useState(comment.text);
+
+  const save = async () => {
+    await updateComment(comment.id, text);
+    await onSaved();
+  };
+
+  return (
+    <TextAreaEditor
+      value={text}
+      onChange={setText}
+      onSave={save}
+      onCancel={() => {
+        setText(comment.text);
+        onCancel();
+      }}
+      placeholder=""
+      saveLabel="save"
+    />
   );
 }
 
@@ -694,80 +738,30 @@ function CommentCard({
   onChanged: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(comment.text);
 
   if (editing) {
     return (
-      <div className="comment-card">
-        <textarea
-          ref={focusWhenConnected}
-          className="comment-input"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              void updateComment(comment.id, text).then(() => {
-                setEditing(false);
-                return onChanged();
-              });
-            }
-            if (e.key === "Escape") {
-              setText(comment.text);
-              setEditing(false);
-            }
-          }}
-        />
-        <div className="comment-actions">
-          <button
-            className="primary"
-            disabled={text.trim().length === 0}
-            onClick={() =>
-              void updateComment(comment.id, text).then(() => {
-                setEditing(false);
-                return onChanged();
-              })
-            }
-          >
-            save
-          </button>
-          <button
-            className="ghost"
-            onClick={() => {
-              setText(comment.text);
-              setEditing(false);
-            }}
-          >
-            cancel
-          </button>
-        </div>
-      </div>
+      <CommentCardEditor
+        comment={comment}
+        onSaved={async () => {
+          setEditing(false);
+          await onChanged();
+        }}
+        onCancel={() => setEditing(false)}
+      />
     );
   }
 
   return (
-    <div className="comment-card">
-      {comment.endLine && (
-        <span className="range-chip">
-          lines {comment.line}–{comment.endLine}
-        </span>
-      )}
-      <div className="comment-text">{comment.text}</div>
-      <div className="comment-actions">
-        <button className="ghost" onClick={() => setEditing(true)}>
-          edit
-        </button>
-        <button
-          className="ghost danger"
-          onClick={() => void deleteComment(comment.id).then(onChanged)}
-        >
-          delete
-        </button>
-      </div>
-    </div>
+    <CommentDisplay
+      comment={comment}
+      onEdit={() => setEditing(true)}
+      onDelete={() => void deleteComment(comment.id).then(onChanged)}
+    />
   );
 }
 
-function CommentEditor({
+function CommentDraftEditor({
   onSave,
   onCancel,
 }: {
@@ -778,7 +772,6 @@ function CommentEditor({
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
-    if (text.trim().length === 0) return;
     setSaving(true);
     try {
       await onSave(text);
@@ -788,30 +781,15 @@ function CommentEditor({
   };
 
   return (
-    <div className="comment-card">
-      <textarea
-        ref={focusWhenConnected}
-        className="comment-input"
-        placeholder="Leave feedback for your agent… (⌘⏎ to save)"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void save();
-          if (e.key === "Escape") onCancel();
-        }}
-      />
-      <div className="comment-actions">
-        <button
-          className="primary"
-          disabled={saving || text.trim().length === 0}
-          onClick={() => void save()}
-        >
-          comment
-        </button>
-        <button className="ghost" onClick={onCancel}>
-          cancel
-        </button>
-      </div>
-    </div>
+    <TextAreaEditor
+      value={text}
+      onChange={setText}
+      onSave={save}
+      onCancel={onCancel}
+      placeholder="Leave feedback for your agent… (⌘⏎ to save)"
+      saveLabel="comment"
+      saving={saving}
+    />
   );
 }
+
