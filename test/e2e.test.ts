@@ -86,13 +86,13 @@ describe.skipIf(SKIP)("e2e", () => {
     test("renders the stack sidebar", async () => {
       await see(page.locator(".diff-header"));
       await see(page.locator(".segment-name", { hasText: "feat-a" }));
-      await see(page.locator(".segment-name", { hasText: "working copy" }));
+      await see(page.locator(".segment-name", { hasText: "local changes" }));
       await see(page.locator(".trunk-row", { hasText: "main" }));
       expect(pageErrors).toEqual([]);
     }, 30_000);
 
     test("shows the working-copy diff by default", async () => {
-      await see(page.locator(".diff-label", { hasText: "working copy" }));
+      await see(page.locator(".diff-label", { hasText: "local changes" }));
       await see(page.locator('.file-card[data-file="b.txt"]'));
     }, 30_000);
 
@@ -143,7 +143,7 @@ describe.skipIf(SKIP)("e2e", () => {
       await see(palette());
       await expectFocusedPaletteInput();
       await see(selected());
-      expect(await selected().textContent()).toContain("Refresh repository");
+      expect(await selected().textContent()).toContain("View local changes");
     }, 30_000);
 
     test("only the selected item is highlighted, only disabled items dimmed", async () => {
@@ -174,7 +174,7 @@ describe.skipIf(SKIP)("e2e", () => {
       await page.keyboard.press("ArrowDown");
       await see(
         page.locator('.command-item[data-selected="true"]', {
-          hasText: "View working copy",
+          hasText: "Open help",
         }),
       );
     }, 30_000);
@@ -190,16 +190,16 @@ describe.skipIf(SKIP)("e2e", () => {
       expect(await page.locator(".command-input").inputValue()).toBe("");
       await see(
         page.locator('.command-item[data-selected="true"]', {
-          hasText: "Refresh repository",
+          hasText: "View local changes",
         }),
       );
     }, 30_000);
 
     test("typing filters and selection follows the matches", async () => {
-      await page.keyboard.type("working");
+      await page.keyboard.type("local");
       await see(
         page.locator('.command-item[data-selected="true"]', {
-          hasText: "View working copy",
+          hasText: "View local changes",
         }),
       );
       // Only matching items remain visible.
@@ -211,7 +211,7 @@ describe.skipIf(SKIP)("e2e", () => {
     test("Enter runs the selected action and closes the palette", async () => {
       await page.keyboard.press("Enter");
       await gone(palette());
-      await see(page.locator(".diff-label", { hasText: "working copy" }));
+      await see(page.locator(".diff-label", { hasText: "local changes" }));
     }, 30_000);
 
     test("disabled actions are skipped by keyboard selection", async () => {
