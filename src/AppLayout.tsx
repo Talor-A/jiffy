@@ -1,7 +1,9 @@
+import { Dialog } from "@base-ui/react";
 import type { Comment, DiffResponse, RepoInfo, StackView } from "../lib/schema";
 import type { DiffSpec } from "./api";
 import { DiffViewer } from "./DiffViewer";
 import { StackPanel } from "./StackPanel";
+import { HelpModal } from "./HelpModal";
 
 export function AppSidebar({
   repo,
@@ -9,26 +11,31 @@ export function AppSidebar({
   spec,
   comments,
   onSelect,
-  onOpenHelp,
+  setHelpOpen,
+  helpOpen,
 }: {
   repo: RepoInfo | null;
   stack: StackView | null;
   spec: DiffSpec;
   comments: Comment[];
   onSelect: (spec: DiffSpec) => void;
-  onOpenHelp: () => void;
+  setHelpOpen: (open: boolean) => void;
+  helpOpen: boolean;
 }) {
   return (
     <aside className="sidebar">
       <header className="repo-header">
         <h1>jiffy</h1>
-        <button
-          className="ghost help-button"
-          title="what is this?"
-          onClick={onOpenHelp}
-        >
-          ?
-        </button>
+        <Dialog.Root open={helpOpen} onOpenChange={setHelpOpen}>
+          <Dialog.Trigger
+            type="button"
+            className="ghost help-button"
+            title="what is this?"
+          >
+            ?
+          </Dialog.Trigger>
+          <HelpModal />
+        </Dialog.Root>
         {repo && (
           <div className="repo-name" title={repo.root}>
             {repo.github ? (

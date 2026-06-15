@@ -56,15 +56,12 @@ export function App() {
 
   const openPalette = useCallback(() => setPaletteOpen(true), []);
   const closePalette = useCallback(() => setPaletteOpen(false), []);
-  const closeHelp = useCallback(() => setHelpOpen(false), []);
 
   useKeyboardShortcuts({
     editingRef,
     paletteOpen,
-    helpOpen,
     onOpenPalette: openPalette,
     onClosePalette: closePalette,
-    onCloseHelp: closeHelp,
   });
 
   const paletteActions = usePaletteActions({
@@ -84,12 +81,13 @@ export function App() {
       <title>{formatPageTitle(spec.label, repo)}</title>
       <div className="app">
         <AppSidebar
+          setHelpOpen={setHelpOpen}
+          helpOpen={helpOpen}
           repo={repo}
           stack={stack}
           spec={spec}
           comments={comments}
           onSelect={setSpec}
-          onOpenHelp={() => setHelpOpen(true)}
         />
         <AppMain
           actionError={actionError}
@@ -120,7 +118,6 @@ export function App() {
           getPickerDisabledReason={getPickerDisabledReason}
           setBookmarkMoveTarget={setBookmarkMoveTarget}
         />
-        {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
       </div>
     </>
   );

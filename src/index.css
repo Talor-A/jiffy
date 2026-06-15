@@ -615,6 +615,62 @@ button.danger {
     font-size: 12px;
 }
 
+/*  base-ui modal styles     */
+.modal-backdrop {
+    position: fixed;
+    min-height: 100dvh;
+    z-index: 900;
+
+    inset: 0;
+    background-color: black;
+    opacity: 0.1;
+    transition: opacity 150ms;
+
+    /* iOS 26+: Ensure the backdrop covers the entire visible viewport. */
+    @supports (-webkit-touch-callout: none) {
+        position: absolute;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        opacity: 0.5;
+    }
+
+    &[data-starting-style],
+    &[data-ending-style] {
+        opacity: 0;
+    }
+}
+.modal-popup {
+    width: min(640px, calc(100vw - 48px));
+    max-height: calc(100vh - 96px);
+    overflow-y: auto;
+
+    z-index: 901;
+    box-sizing: border-box;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    margin-top: -2rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    background-color: var(--panel);
+    border-radius: 12px;
+
+    color: var(--text)
+    box-shadow: 0.25rem 0.25rem 0 rgb(0 0 0 / 12%);
+    transition:
+      transform 100ms ease-out,
+      opacity 100ms ease-out;
+
+
+    &[data-starting-style],
+    &[data-ending-style] {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.98);
+    }
+}
+
 /* ----------------------------------------------------------------- modal */
 
 .modal-overlay {
@@ -625,6 +681,7 @@ button.danger {
     display: grid;
     place-items: center;
 }
+
 .modal-panel {
     width: min(640px, calc(100vw - 48px));
     max-height: calc(100vh - 96px);

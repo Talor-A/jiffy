@@ -7,19 +7,15 @@ interface BooleanRef {
 export interface KeyboardShortcutOptions {
   editingRef: BooleanRef;
   paletteOpen: boolean;
-  helpOpen: boolean;
   onOpenPalette: () => void;
   onClosePalette: () => void;
-  onCloseHelp: () => void;
 }
 
 export function useKeyboardShortcuts({
   editingRef,
   paletteOpen,
-  helpOpen,
-  onOpenPalette,
   onClosePalette,
-  onCloseHelp,
+  onOpenPalette,
 }: KeyboardShortcutOptions) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -33,21 +29,14 @@ export function useKeyboardShortcuts({
           onClosePalette();
           return;
         }
-        if (helpOpen) {
-          event.preventDefault();
-          onCloseHelp();
-        }
+
         return;
       }
 
-      if (
-        event.key.toLowerCase() === "k" &&
-        (event.metaKey || event.ctrlKey)
-      ) {
+      if (event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey)) {
         if (
           editingRef.current ||
           paletteOpen ||
-          helpOpen ||
           isContextMenuOpen() ||
           isTextEntryTarget(event.target)
         ) {
@@ -60,14 +49,7 @@ export function useKeyboardShortcuts({
 
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [
-    editingRef,
-    paletteOpen,
-    helpOpen,
-    onOpenPalette,
-    onClosePalette,
-    onCloseHelp,
-  ]);
+  }, [editingRef, paletteOpen, onOpenPalette, onClosePalette]);
 }
 
 function isContextMenuOpen(): boolean {
