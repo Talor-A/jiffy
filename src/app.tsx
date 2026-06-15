@@ -33,15 +33,12 @@ export function App() {
   } = useRepoData({ onActionError: setActionError });
 
   const {
-    stackAction,
     setStackAction,
     pendingDescribe,
     clearPendingDescribe,
     pickableChanges,
     pickableBookmarks,
-    squashSource,
-    bookmarkMoveTarget,
-    pickerConfig,
+    activePicker,
     closePicker,
     handlePick,
     getPickerDisabledReason,
@@ -107,10 +104,7 @@ export function App() {
           onOpenChange={setPaletteOpen}
         />
         <StackActionPickers
-          stackAction={stackAction}
-          squashSource={squashSource}
-          bookmarkMoveTarget={bookmarkMoveTarget}
-          pickerConfig={pickerConfig}
+          activePicker={activePicker}
           pickableChanges={pickableChanges}
           pickableBookmarks={pickableBookmarks}
           closePicker={closePicker}
