@@ -1,27 +1,15 @@
 import { Dialog } from "@base-ui/react";
-import type { Comment, DiffResponse, RepoInfo, StackView } from "../lib/schema";
-import type { DiffSpec } from "./api";
 import { DiffViewer } from "./DiffViewer";
 import { StackPanel } from "./StackPanel";
 import { HelpModal } from "./HelpModal";
+import { useHelp, useRepo } from "./RepoContext";
 
-export function AppSidebar({
-  repo,
-  stack,
-  spec,
-  comments,
-  onSelect,
-  setHelpOpen,
-  helpOpen,
-}: {
-  repo: RepoInfo | null;
-  stack: StackView | null;
-  spec: DiffSpec;
-  comments: Comment[];
-  onSelect: (spec: DiffSpec) => void;
-  setHelpOpen: (open: boolean) => void;
-  helpOpen: boolean;
-}) {
+export function AppSidebar() {
+  const { state, actions } = useRepo();
+  const { repo, stack, spec, comments } = state;
+  const { setSpec } = actions;
+  const { helpOpen, setHelpOpen } = useHelp();
+
   return (
     <aside className="sidebar">
       <header className="repo-header">
@@ -62,7 +50,7 @@ export function AppSidebar({
           stack={stack}
           activeKey={spec.key}
           comments={comments}
-          onSelect={onSelect}
+          onSelect={setSpec}
         />
       )}
     </aside>
@@ -70,28 +58,16 @@ export function AppSidebar({
 }
 
 export function AppMain({
-  actionError,
-  diffError,
-  loading,
-  spec,
-  diff,
-  comments,
   pendingDescribe,
   onPendingDescribeHandled,
-  onCommentsChanged,
-  onEditingChanged,
 }: {
-  actionError: string | null;
-  diffError: string | null;
-  loading: boolean;
-  spec: DiffSpec;
-  diff: DiffResponse | null;
-  comments: Comment[];
   pendingDescribe: { changeId: string; description: string } | null;
   onPendingDescribeHandled: () => void;
-  onCommentsChanged: () => Promise<void>;
-  onEditingChanged: (editing: boolean) => void;
 }) {
+  const { state, actions } = useRepo();
+  const { actionError, diffError, loading, spec, diff, comments } = state;
+  const { reloadComments, setEditing } = actions;
+
   return (
     <main className="main">
       {actionError && <div className="error-banner">{actionError}</div>}
@@ -105,8 +81,8 @@ export function AppMain({
           allCommentCount={comments.length}
           pendingDescribe={pendingDescribe}
           onPendingDescribeHandled={onPendingDescribeHandled}
-          onCommentsChanged={onCommentsChanged}
-          onEditingChanged={onEditingChanged}
+          onCommentsChanged={reloadComments}
+          onEditingChanged={setEditing}
         />
       )}
     </main>

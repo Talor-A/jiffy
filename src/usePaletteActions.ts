@@ -1,33 +1,23 @@
 import { useMemo } from "react";
-import type { ActionRequest, RepoInfo, StackView } from "../lib/schema";
-import { WC_SPEC, type DiffSpec } from "./api";
+import { WC_SPEC } from "./api";
 import type { PaletteAction } from "./CommandPalette";
+import { useHelp, useRepo } from "./RepoContext";
 import type { PickerActionKind } from "./stackPicker";
 
 export function usePaletteActions({
-  repo,
-  stack,
+  setStackAction,
   pickableChangesCount,
   pickableBookmarksCount,
-  setSpec,
-  setHelpOpen,
-  setStackAction,
-  runRepoAction,
-  handleRefresh,
 }: {
-  repo: RepoInfo | null;
-  stack: StackView | null;
+  setStackAction: (action: PickerActionKind | null) => void;
   pickableChangesCount: number;
   pickableBookmarksCount: number;
-  setSpec: (spec: DiffSpec) => void;
-  setHelpOpen: (open: boolean) => void;
-  setStackAction: (action: PickerActionKind | null) => void;
-  runRepoAction: (
-    request: ActionRequest,
-    opts?: { viewWorkingCopy?: boolean },
-  ) => Promise<void>;
-  handleRefresh: () => Promise<void>;
 }): PaletteAction[] {
+  const { state, actions } = useRepo();
+  const { repo, stack } = state;
+  const { setSpec, runRepoAction, handleRefresh } = actions;
+  const { openHelp } = useHelp();
+
   return useMemo(
     () => [
       {
@@ -40,7 +30,7 @@ export function usePaletteActions({
         id: "open-help",
         label: "Open help",
         keywords: ["keyboard", "shortcuts", "docs"],
-        run: () => setHelpOpen(true),
+        run: openHelp,
       },
       {
         id: "open-github",
@@ -154,11 +144,11 @@ export function usePaletteActions({
     ],
     [
       handleRefresh,
+      openHelp,
       pickableBookmarksCount,
       pickableChangesCount,
       repo,
       runRepoAction,
-      setHelpOpen,
       setSpec,
       setStackAction,
       stack?.hasUnpushedWork,
