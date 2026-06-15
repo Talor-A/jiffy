@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import {
-  parsePatchFiles,
   type FileDiffMetadata,
   type SelectedLineRange,
 } from "@pierre/diffs";
@@ -18,35 +17,214 @@ import type {
 import { ChangeId } from "./ChangeId";
 import { ContextMenu, copyItem } from "./ContextMenu";
 import {
-  addComment,
-  clearComments,
   deleteComment,
-  exportFeedback,
   runAction,
   updateComment,
   type DiffSpec,
 } from "./api";
 import { FileTreePanel } from "./FileTreePanel";
 import { TextAreaEditor } from "./TextAreaEditor";
+import {
+  DiffViewerCompound,
+  useDiffViewer,
+  type DescribeTarget,
+  type Draft,
+} from "./DiffViewerContext";
 
 type AnnoMeta =
   | { kind: "thread"; comments: Comment[] }
   | { kind: "draft" };
 
-interface Draft {
-  file: string;
-  side: CommentSide;
-  line: number;
-  /** Inclusive range end; set only when the draft spans multiple lines. */
-  endLine?: number;
-  codeLine: string | null;
+export function DiffViewer({
+  spec,
+  diff,
+  comments,
+  allCommentCount,
+  pendingDescribe,
+  onPendingDescribeHandled,
+  onCommentsChanged,
+  onEditingChanged,
+}: {
+  spec: DiffSpec;
+  diff: DiffResponse;
+  comments: Comment[];
+  allCommentCount: number;
+  pendingDescribe?: DescribeTarget | null;
+  onPendingDescribeHandled?: () => void;
+  onCommentsChanged: () => Promise<void>;
+  onEditingChanged: (editing: boolean) => void;
+}) {
+  return (
+    <DiffViewerCompound.Provider
+      spec={spec}
+      diff={diff}
+      comments={comments}
+      allCommentCount={allCommentCount}
+      pendingDescribe={pendingDescribe}
+      onPendingDescribeHandled={onPendingDescribeHandled}
+      onCommentsChanged={onCommentsChanged}
+      onEditingChanged={onEditingChanged}
+    >
+      <DiffViewerCompound.Frame>
+        <DiffViewerHeader />
+        <DiffViewerBody />
+      </DiffViewerCompound.Frame>
+    </DiffViewerCompound.Provider>
+  );
 }
 
-/** Target of the inline header describe editor. */
-interface DescribeTarget {
-  changeId: string;
-  /** Full current description, prefilled into the editor. */
-  description: string;
+export const DiffViewerParts = {
+  ...DiffViewerCompound,
+  Header: DiffViewerHeader,
+  Title: DiffViewerTitle,
+  Toolbar: DiffViewerToolbar,
+  Body: DiffViewerBody,
+};
+
+function DiffViewerHeader() {
+  return (
+    <header className="diff-header">
+      <DiffViewerTitle />
+      <DiffViewerToolbar />
+    </header>
+  );
+}
+
+function DiffViewerTitle() {
+  const { state, actions } = useDiffViewer();
+  const { spec, diff, describing } = state;
+  const { setDescribing } = actions;
+
+  if (describing) {
+    return (
+      <div className="diff-title">
+        <DescribeEditor
+          key={describing.changeId}
+          target={describing}
+          onClose={() => setDescribing(null)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="diff-title">
+      {diff.change && !diff.change.immutable ? (
+        <span
+          className="diff-label describable"
+          title="double-click to edit description"
+          onDoubleClick={() => {
+            const c = diff.change!;
+            setDescribing({
+              changeId: c.changeId,
+              description: c.description,
+            });
+          }}
+        >
+          {spec.label}
+        </span>
+      ) : (
+        <span className="diff-label" title={spec.label}>
+          {spec.label}
+        </span>
+      )}
+      <DiffEndpoints
+        diff={diff}
+        specLabel={spec.label}
+        onDescribe={setDescribing}
+      />
+    </div>
+  );
+}
+
+function DiffViewerToolbar() {
+  const { state, actions } = useDiffViewer();
+  const {
+    files,
+    stats,
+    treeOpen,
+    diffStyle,
+    copied,
+    allCommentCount,
+  } = state;
+  const { toggleTree, toggleDiffStyle, copyFeedback, clearComments } = actions;
+
+  return (
+    <div className="diff-meta">
+      <span className="stat">
+        {files.length} file{files.length === 1 ? "" : "s"}
+      </span>
+      <span className="stat additions">+{stats.additions}</span>
+      <span className="stat deletions">−{stats.deletions}</span>
+      <button
+        className="ghost"
+        onClick={toggleTree}
+        title={treeOpen ? "hide the file tree" : "show the file tree"}
+      >
+        {treeOpen ? "⊟ files" : "⊞ files"}
+      </button>
+      <button className="ghost" onClick={toggleDiffStyle}>
+        {diffStyle === "unified" ? "split view" : "unified view"}
+      </button>
+      <button
+        className="primary"
+        disabled={allCommentCount === 0}
+        onClick={() => void copyFeedback()}
+        title="Copy all comments as agent-ready markdown"
+      >
+        {copied ? "copied ✓" : `copy feedback (${allCommentCount})`}
+      </button>
+      {allCommentCount > 0 && (
+        <button className="ghost danger" onClick={() => void clearComments()}>
+          clear
+        </button>
+      )}
+    </div>
+  );
+}
+
+function DiffViewerBody() {
+  const { state, actions } = useDiffViewer();
+  const { files, treeOpen, diffKey, diffStyle, draft, comments } = state;
+  const {
+    scrollToFile,
+    openDraft,
+    closeDraft,
+    saveDraft,
+    registerFileRef,
+    onCommentsChanged,
+  } = actions;
+
+  if (files.length === 0) {
+    return <div className="placeholder">no changes in this view</div>;
+  }
+
+  return (
+    <div className="diff-body">
+      {treeOpen && (
+        <FileTreePanel files={files} onSelectFile={scrollToFile} />
+      )}
+      <Virtualizer
+        className="diff-files"
+        contentClassName="diff-files-content"
+      >
+        {files.map((file) => (
+          <FileDiffCard
+            key={`${diffKey}:${file.name}`}
+            file={file}
+            diffStyle={diffStyle}
+            comments={comments.filter((c) => c.file === file.name)}
+            draft={draft?.file === file.name ? draft : null}
+            onOpenDraft={openDraft}
+            onCloseDraft={closeDraft}
+            onSaveDraft={saveDraft}
+            onCommentsChanged={onCommentsChanged}
+            registerRef={(el) => registerFileRef(file.name, el)}
+          />
+        ))}
+      </Virtualizer>
+    </div>
+  );
 }
 
 /**
@@ -97,220 +275,6 @@ function snippetFor(
   }
   if (cap < hi) lines.push("…");
   return lines.join("\n");
-}
-
-export function DiffViewer({
-  spec,
-  diff,
-  comments,
-  allCommentCount,
-  pendingDescribe,
-  onPendingDescribeHandled,
-  onCommentsChanged,
-  onEditingChanged,
-}: {
-  spec: DiffSpec;
-  diff: DiffResponse;
-  /** Comments scoped to this spec. */
-  comments: Comment[];
-  allCommentCount: number;
-  /** Open the describe editor once this change's diff is shown (command palette). */
-  pendingDescribe?: DescribeTarget | null;
-  onPendingDescribeHandled?: () => void;
-  onCommentsChanged: () => Promise<void>;
-  onEditingChanged: (editing: boolean) => void;
-}) {
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [describing, setDescribing] = useState<DescribeTarget | null>(null);
-  const [diffStyle, setDiffStyle] = useState<"unified" | "split">("unified");
-  const [treeOpen, setTreeOpen] = useState(true);
-  const [copied, setCopied] = useState(false);
-  const fileRefs = useRef(new Map<string, HTMLDivElement>());
-
-  const files = useMemo(
-    () => parsePatchFiles(diff.patch).flatMap((p) => p.files),
-    [diff.patch],
-  );
-
-  // Pierre's VirtualizedFileDiff only adopts a fileDiff on mount, so a card
-  // keyed by file name alone keeps rendering whatever patch it first showed.
-  // Commit shas pin exact content (change ids don't — they survive amends),
-  // so keying on the endpoint shas remounts cards exactly when needed.
-  const diffKey = diff.change
-    ? diff.change.commitId
-    : `${diff.from?.commitId}..${diff.to?.commitId}`;
-
-  // Close any open editor when switching views.
-  useEffect(() => {
-    setDraft(null);
-    setDescribing(null);
-  }, [spec.key]);
-
-  useEffect(() => {
-    if (!pendingDescribe || diff.change?.changeId !== pendingDescribe.changeId) {
-      return;
-    }
-    setDescribing(pendingDescribe);
-    onPendingDescribeHandled?.();
-  }, [pendingDescribe, diff.change?.changeId, onPendingDescribeHandled]);
-
-  // Either open editor defers diff refetches (see App.setEditing).
-  useEffect(() => {
-    onEditingChanged(draft !== null || describing !== null);
-  }, [draft, describing, onEditingChanged]);
-
-  const openDraft = useCallback((d: Draft) => setDraft(d), []);
-  const closeDraft = useCallback(() => setDraft(null), []);
-
-  const saveDraft = useCallback(
-    async (text: string) => {
-      if (!draft) return;
-      await addComment({
-        specKey: spec.key,
-        specLabel: spec.label,
-        file: draft.file,
-        side: draft.side,
-        line: draft.line,
-        endLine: draft.endLine,
-        codeLine: draft.codeLine,
-        text,
-      });
-      await onCommentsChanged();
-      closeDraft();
-    },
-    [draft, spec, onCommentsChanged, closeDraft],
-  );
-
-  const handleCopyFeedback = useCallback(async () => {
-    const { markdown } = await exportFeedback();
-    await navigator.clipboard.writeText(markdown);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }, []);
-
-  const handleClear = useCallback(async () => {
-    if (!confirm("Delete all review comments?")) return;
-    await clearComments();
-    await onCommentsChanged();
-  }, [onCommentsChanged]);
-
-  const scrollToFile = useCallback((name: string) => {
-    fileRefs.current.get(name)?.scrollIntoView({ block: "start" });
-  }, []);
-
-  const stats = useMemo(() => fileStats(files), [files]);
-
-  return (
-    <div className="diff-viewer">
-      <header className="diff-header">
-        <div className="diff-title">
-          {describing ? (
-            <DescribeEditor
-              key={describing.changeId}
-              target={describing}
-              onClose={() => setDescribing(null)}
-            />
-          ) : (
-            <>
-              {/* In change mode the endpoint summary is suppressed when it
-                  repeats the label, so the label itself is the edit target. */}
-              {diff.change && !diff.change.immutable ? (
-                <span
-                  className="diff-label describable"
-                  title="double-click to edit description"
-                  onDoubleClick={() => {
-                    const c = diff.change!;
-                    setDescribing({
-                      changeId: c.changeId,
-                      description: c.description,
-                    });
-                  }}
-                >
-                  {spec.label}
-                </span>
-              ) : (
-                <span className="diff-label" title={spec.label}>
-                  {spec.label}
-                </span>
-              )}
-              <DiffEndpoints
-                diff={diff}
-                specLabel={spec.label}
-                onDescribe={setDescribing}
-              />
-            </>
-          )}
-        </div>
-        <div className="diff-meta">
-          <span className="stat">
-            {files.length} file{files.length === 1 ? "" : "s"}
-          </span>
-          <span className="stat additions">+{stats.additions}</span>
-          <span className="stat deletions">−{stats.deletions}</span>
-          <button
-            className="ghost"
-            onClick={() => setTreeOpen((open) => !open)}
-            title={treeOpen ? "hide the file tree" : "show the file tree"}
-          >
-            {treeOpen ? "⊟ files" : "⊞ files"}
-          </button>
-          <button
-            className="ghost"
-            onClick={() =>
-              setDiffStyle((s) => (s === "unified" ? "split" : "unified"))
-            }
-          >
-            {diffStyle === "unified" ? "split view" : "unified view"}
-          </button>
-          <button
-            className="primary"
-            disabled={allCommentCount === 0}
-            onClick={() => void handleCopyFeedback()}
-            title="Copy all comments as agent-ready markdown"
-          >
-            {copied ? "copied ✓" : `copy feedback (${allCommentCount})`}
-          </button>
-          {allCommentCount > 0 && (
-            <button className="ghost danger" onClick={() => void handleClear()}>
-              clear
-            </button>
-          )}
-        </div>
-      </header>
-
-      {files.length === 0 ? (
-        <div className="placeholder">no changes in this view</div>
-      ) : (
-        <div className="diff-body">
-          {treeOpen && (
-            <FileTreePanel files={files} onSelectFile={scrollToFile} />
-          )}
-          <Virtualizer
-            className="diff-files"
-            contentClassName="diff-files-content"
-          >
-            {files.map((file) => (
-              <FileDiffCard
-                key={`${diffKey}:${file.name}`}
-                file={file}
-                diffStyle={diffStyle}
-                comments={comments.filter((c) => c.file === file.name)}
-                draft={draft?.file === file.name ? draft : null}
-                onOpenDraft={openDraft}
-                onCloseDraft={closeDraft}
-                onSaveDraft={saveDraft}
-                onCommentsChanged={onCommentsChanged}
-                registerRef={(el) => {
-                  if (el) fileRefs.current.set(file.name, el);
-                  else fileRefs.current.delete(file.name);
-                }}
-              />
-            ))}
-          </Virtualizer>
-        </div>
-      )}
-    </div>
-  );
 }
 
 function summaryOf(endpoint: DiffEndpoint): string {
@@ -479,21 +443,6 @@ function DescribeEditor({
       wrapperClassName="describe-editor"
     />
   );
-}
-
-function fileStats(files: FileDiffMetadata[]): {
-  additions: number;
-  deletions: number;
-} {
-  let additions = 0;
-  let deletions = 0;
-  for (const file of files) {
-    for (const hunk of file.hunks) {
-      additions += hunk.additionLines;
-      deletions += hunk.deletionLines;
-    }
-  }
-  return { additions, deletions };
 }
 
 function FileDiffCard({
