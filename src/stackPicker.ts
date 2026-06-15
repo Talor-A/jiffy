@@ -1,5 +1,22 @@
 import type { ActionRequest, ChangeInfo } from "../lib/schema";
 
+export interface PickerConfig {
+  title: string;
+  detail: string;
+  actionLabel: string;
+}
+
+export type ActivePicker =
+  | { kind: "bookmark-select" }
+  | { kind: "bookmark-destination"; bookmark: string; config: PickerConfig }
+  | { kind: "squash-source"; config: PickerConfig }
+  | { kind: "squash-destination"; source: ChangeInfo; config: PickerConfig }
+  | {
+      kind: "single-change";
+      action: "abandon" | "absorb" | "describe";
+      config: PickerConfig;
+    };
+
 export type PickerActionKind =
   | "abandon"
   | "absorb"

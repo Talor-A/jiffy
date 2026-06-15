@@ -9,6 +9,7 @@ import {
   squashIntoConfig,
   STACK_ACTION_CONFIG,
   stackActionRequest,
+  type ActivePicker,
   type PickerActionKind,
 } from "./stackPicker";
 
@@ -137,15 +138,32 @@ export function useStackPicker({
     [squashSource],
   );
 
-  const pickerConfig = stackAction
-    ? stackAction === "bookmark-move" && bookmarkMoveTarget
-      ? bookmarkMoveDestinationConfig(bookmarkMoveTarget)
-      : squashSource
-        ? squashIntoConfig(squashSource)
-        : stackAction === "bookmark-move"
-          ? null
-          : STACK_ACTION_CONFIG[stackAction]
-    : null;
+  const activePicker = useMemo((): ActivePicker | null => {
+    if (!stackAction) return null;
+    if (stackAction === "bookmark-move") {
+      if (!bookmarkMoveTarget) return { kind: "bookmark-select" };
+      return {
+        kind: "bookmark-destination",
+        bookmark: bookmarkMoveTarget,
+        config: bookmarkMoveDestinationConfig(bookmarkMoveTarget),
+      };
+    }
+    if (stackAction === "squash") {
+      if (!squashSource) {
+        return { kind: "squash-source", config: STACK_ACTION_CONFIG.squash };
+      }
+      return {
+        kind: "squash-destination",
+        source: squashSource,
+        config: squashIntoConfig(squashSource),
+      };
+    }
+    return {
+      kind: "single-change",
+      action: stackAction,
+      config: STACK_ACTION_CONFIG[stackAction],
+    };
+  }, [stackAction, bookmarkMoveTarget, squashSource]);
 
   return {
     stackAction,
@@ -154,9 +172,7 @@ export function useStackPicker({
     clearPendingDescribe: () => setPendingDescribe(null),
     pickableChanges,
     pickableBookmarks,
-    squashSource,
-    bookmarkMoveTarget,
-    pickerConfig,
+    activePicker,
     closePicker,
     handlePick,
     getPickerDisabledReason,
