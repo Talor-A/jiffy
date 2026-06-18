@@ -14,7 +14,12 @@ import type {
   CommentSide,
   DiffEndpoint,
   DiffResponse,
+  SemEntityChange,
 } from "../lib/schema";
+import {
+  groupSemChangesByLine,
+  semChangesForFile,
+} from "../lib/semAnnotations";
 import { ChangeId } from "./ChangeId";
 import { ContextMenu, copyItem } from "./ContextMenu";
 import {
@@ -30,7 +35,8 @@ import { FileTreePanel } from "./FileTreePanel";
 
 type AnnoMeta =
   | { kind: "thread"; comments: Comment[] }
-  | { kind: "draft" };
+  | { kind: "draft" }
+  | { kind: "sem"; entities: SemEntityChange[] };
 
 interface Draft {
   file: string;
@@ -170,7 +176,10 @@ export function DiffViewer({
   }, [spec.key]);
 
   useEffect(() => {
-    if (!pendingDescribe || diff.change?.changeId !== pendingDescribe.changeId) {
+    if (
+      !pendingDescribe ||
+      diff.change?.changeId !== pendingDescribe.changeId
+    ) {
       return;
     }
     setDescribing(pendingDescribe);
@@ -317,6 +326,7 @@ export function DiffViewer({
                 key={`${diffKey}:${file.name}`}
                 file={file}
                 diffStyle={diffStyle}
+                sem={diff.sem}
                 comments={comments.filter((c) => c.file === file.name)}
                 draft={draft?.file === file.name ? draft : null}
                 onOpenDraft={openDraft}
@@ -513,6 +523,7 @@ function fileStats(files: FileDiffMetadata[]): {
 function FileDiffCard({
   file,
   diffStyle,
+  sem,
   comments,
   draft,
   onOpenDraft,
@@ -523,6 +534,7 @@ function FileDiffCard({
 }: {
   file: FileDiffMetadata;
   diffStyle: "unified" | "split";
+  sem: DiffResponse["sem"];
   comments: Comment[];
   draft: Draft | null;
   onOpenDraft: (draft: Draft) => void;
@@ -531,8 +543,29 @@ function FileDiffCard({
   onCommentsChanged: () => Promise<void>;
   registerRef: (el: HTMLDivElement | null) => void;
 }) {
+  const semGroups = useMemo(() => {
+    if (!sem) return [];
+    if (
+      file.type === "new" ||
+      file.type === "deleted" ||
+      file.type === "rename-pure"
+    )
+      return [];
+    return groupSemChangesByLine(
+      file,
+      semChangesForFile(sem.changes, file.name),
+    );
+  }, [file, sem]);
+
   const annotations = useMemo(() => {
     const result: DiffLineAnnotation<AnnoMeta>[] = [];
+    for (const group of semGroups) {
+      result.push({
+        side: group.side,
+        lineNumber: group.line,
+        metadata: { kind: "sem", entities: group.entities },
+      });
+    }
     // Range comments anchor at their END line (annotations render below
     // their line, so the thread sits under the whole range).
     const grouped = new Map<string, Comment[]>();
@@ -550,10 +583,7 @@ function FileDiffCard({
         metadata: { kind: "thread", comments: group },
       });
     }
-    if (
-      draft &&
-      !grouped.has(`${draft.side}:${draft.endLine ?? draft.line}`)
-    ) {
+    if (draft && !grouped.has(`${draft.side}:${draft.endLine ?? draft.line}`)) {
       result.push({
         side: draft.side,
         lineNumber: draft.endLine ?? draft.line,
@@ -561,7 +591,7 @@ function FileDiffCard({
       });
     }
     return result;
-  }, [comments, draft]);
+  }, [comments, draft, semGroups]);
 
   const fileName = file.name;
   const options = useMemo(
@@ -618,6 +648,9 @@ function FileDiffCard({
     (annotation: DiffLineAnnotation<AnnoMeta>) => {
       const meta = annotation.metadata;
       if (!meta) return null;
+      if (meta.kind === "sem") {
+        return <SemAnnotation entities={meta.entities} />;
+      }
       const lineDraft =
         draft &&
         draft.side === annotation.side &&
@@ -646,11 +679,7 @@ function FileDiffCard({
           : []),
       ]}
     >
-      <div
-        className="file-card"
-        ref={registerRef}
-        data-file={file.name}
-      >
+      <div className="file-card" ref={registerRef} data-file={file.name}>
         <FileDiff<AnnoMeta>
           fileDiff={file}
           options={options}
@@ -660,6 +689,47 @@ function FileDiffCard({
         />
       </div>
     </ContextMenu>
+  );
+}
+
+const SEM_CHANGE_SYMBOL: Record<string, string> = {
+  added: "+",
+  deleted: "−",
+  modified: "~",
+  moved: "→",
+  renamed: "↔",
+  reordered: "↕",
+};
+
+function semEntityRange(entity: SemEntityChange): string | null {
+  const start =
+    entity.changeType === "deleted" ? entity.oldStartLine : entity.startLine;
+  const end =
+    entity.changeType === "deleted" ? entity.oldEndLine : entity.endLine;
+  if (start == null || end == null || start === end) return null;
+  return `L${start}–${end}`;
+}
+
+function SemAnnotation({ entities }: { entities: SemEntityChange[] }) {
+  return (
+    <div className="sem-annotation">
+      {entities.map((entity) => (
+        <div
+          key={entity.entityId}
+          className={`sem-chip sem-${entity.changeType}`}
+          title={entity.entityId}
+        >
+          <span className="sem-change">
+            {SEM_CHANGE_SYMBOL[entity.changeType] ?? "·"}
+          </span>
+          <span className="sem-type">{entity.entityType}</span>
+          <span className="sem-name">{entity.entityName}</span>
+          {semEntityRange(entity) && (
+            <span className="sem-range">{semEntityRange(entity)}</span>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 

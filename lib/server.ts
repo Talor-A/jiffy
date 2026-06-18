@@ -5,6 +5,7 @@ import type { Jj } from "./jj";
 import { CommentStore, exportMarkdown } from "./comments";
 import { fetchGithubContext } from "./github";
 import { assembleStack } from "./stack";
+import { semDiffFromPatch } from "./sem";
 import {
   ActionRequestSchema,
   CommentInputSchema,
@@ -306,7 +307,10 @@ export function createServer(
           // state the patch was produced from.
           if (spec.change !== undefined) {
             const patch = await jj.diffChange(spec.change);
-            const change = await jj.resolve(spec.change);
+            const [change, sem] = await Promise.all([
+              jj.resolve(spec.change),
+              semDiffFromPatch(patch, jj.cwd),
+            ]);
             if (!change) {
               return json(
                 { error: `no revision matches: ${spec.change}` },
@@ -318,14 +322,16 @@ export function createServer(
               change: pickEndpoint(change),
               from: null,
               to: null,
+              sem,
             };
             return json(body);
           }
 
           const patch = await jj.diffRange(spec.from!, spec.to!);
-          const [from, to] = await Promise.all([
+          const [from, to, sem] = await Promise.all([
             jj.resolve(spec.from!),
             jj.resolve(spec.to!),
+            semDiffFromPatch(patch, jj.cwd),
           ]);
           if (!from || !to) {
             return json(
@@ -340,6 +346,7 @@ export function createServer(
             from: pickEndpoint(from),
             to: pickEndpoint(to),
             change: null,
+            sem,
           };
           return json(body);
         }),

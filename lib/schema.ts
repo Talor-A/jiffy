@@ -163,6 +163,56 @@ export const DiffEndpointSchema = z.object({
 });
 export type DiffEndpoint = z.infer<typeof DiffEndpointSchema>;
 
+// ---------------------------------------------------------------------------
+// sem diff (optional; null when `sem` is missing or disabled)
+// ---------------------------------------------------------------------------
+
+export const SemChangeTypeSchema = z.enum([
+  "added",
+  "deleted",
+  "modified",
+  "moved",
+  "renamed",
+  "reordered",
+]);
+export type SemChangeType = z.infer<typeof SemChangeTypeSchema>;
+
+export const SemEntityChangeSchema = z.object({
+  entityId: z.string(),
+  changeType: SemChangeTypeSchema,
+  entityType: z.string(),
+  entityName: z.string(),
+  startLine: z.number().int().positive().nullable(),
+  endLine: z.number().int().positive().nullable(),
+  oldStartLine: z.number().int().positive().nullable(),
+  oldEndLine: z.number().int().positive().nullable(),
+  oldEntityName: z.string().nullable(),
+  filePath: z.string(),
+  oldFilePath: z.string().nullable(),
+  structuralChange: z.boolean().nullable().optional(),
+});
+export type SemEntityChange = z.infer<typeof SemEntityChangeSchema>;
+
+export const SemDiffSummarySchema = z.object({
+  fileCount: z.number().int(),
+  added: z.number().int(),
+  modified: z.number().int(),
+  deleted: z.number().int(),
+  moved: z.number().int(),
+  renamed: z.number().int(),
+  reordered: z.number().int(),
+  binary: z.number().int(),
+  orphan: z.number().int(),
+  total: z.number().int(),
+});
+export type SemDiffSummary = z.infer<typeof SemDiffSummarySchema>;
+
+export const SemDiffSchema = z.object({
+  summary: SemDiffSummarySchema,
+  changes: z.array(SemEntityChangeSchema),
+});
+export type SemDiff = z.infer<typeof SemDiffSchema>;
+
 export const DiffResponseSchema = z.object({
   /** Raw `jj diff --git` output; the client parses it with @pierre/diffs. */
   patch: z.string(),
@@ -170,6 +220,8 @@ export const DiffResponseSchema = z.object({
   to: DiffEndpointSchema.nullable(),
   /** The single revision when the request used `change`. */
   change: DiffEndpointSchema.nullable(),
+  /** Semantic entity changes from `sem diff --patch`, when available. */
+  sem: SemDiffSchema.nullable(),
 });
 export type DiffResponse = z.infer<typeof DiffResponseSchema>;
 

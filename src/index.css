@@ -478,6 +478,62 @@ button.danger {
     }
 }
 
+/* -------------------------------------------------------- sem annotations */
+
+.sem-annotation {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px 10px;
+    background: color-mix(in srgb, var(--panel) 85%, var(--accent) 15%);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-ui);
+    font-size: 12px;
+}
+
+.sem-chip {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    color: var(--text-dim);
+}
+
+.sem-change {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    width: 1ch;
+    flex-shrink: 0;
+}
+.sem-added .sem-change {
+    color: var(--add);
+}
+.sem-deleted .sem-change {
+    color: var(--del);
+}
+.sem-modified .sem-change {
+    color: var(--accent);
+}
+
+.sem-type {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: lowercase;
+    color: var(--text-dim);
+}
+
+.sem-name {
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+}
+
+.sem-range {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+}
+
 /* -------------------------------------------------------------- comments */
 
 .comment-thread {
