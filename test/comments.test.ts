@@ -65,6 +65,28 @@ describe("CommentStore", () => {
     const store = new CommentStore(path);
     expect(store.list()).rejects.toThrow();
   });
+
+  test("corrupt store is never overwritten by later writes", async () => {
+    const path = join(dir, "corrupt-keep.json");
+    const corrupt = `{"version":1,"comments":[{"bogus":true}]}`;
+    await Bun.write(path, corrupt);
+    const store = new CommentStore(path);
+    expect(store.list()).rejects.toThrow();
+    expect(store.add(input())).rejects.toThrow();
+    expect(await Bun.file(path).text()).toBe(corrupt);
+  });
+
+  test("concurrent mutations all persist", async () => {
+    const path = join(dir, "concurrent.json");
+    const store = new CommentStore(path);
+    await Promise.all(
+      Array.from({ length: 10 }, (_, i) =>
+        store.add(input({ line: i + 1 })),
+      ),
+    );
+    const reloaded = new CommentStore(path);
+    expect(await reloaded.list()).toHaveLength(10);
+  });
 });
 
 describe("exportMarkdown", () => {
