@@ -200,6 +200,10 @@ async function actionFixture(): Promise<{
     server,
     watcher,
     post: (body: unknown) =>
-      fetch(url("/api/actions"), { method: "POST", body: JSON.stringify(body) }),
+      fetch(url("/api/actions"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
   };
 }
