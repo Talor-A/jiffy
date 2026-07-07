@@ -124,11 +124,50 @@ function json(data: unknown, status = 200): Response {
   return Response.json(data, { status });
 }
 
+const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+
+/**
+ * True when the request provably came from this machine's browser pointed at
+ * the loopback server: Host must be loopback (defeats DNS rebinding), and
+ * Origin — when a browser sends one — must be a loopback origin too (defeats
+ * cross-site "simple" requests, which carry the attacker page's Origin).
+ * Security boundary: keep localhost the only accepted host.
+ */
+export function isLoopbackRequest(headers: Headers): boolean {
+  const host = headers.get("host");
+  if (!host) return false;
+  const hostname = host.startsWith("[")
+    ? host.slice(0, host.indexOf("]") + 1)
+    : (host.split(":")[0] ?? "");
+  if (!LOOPBACK_HOSTNAMES.has(hostname)) return false;
+  const origin = headers.get("origin");
+  if (origin !== null) {
+    try {
+      if (!LOOPBACK_HOSTNAMES.has(new URL(origin).hostname)) return false;
+    } catch {
+      return false; // includes Origin: "null" (sandboxed iframes) — reject
+    }
+  }
+  return true;
+}
+
 /** Wrap a handler: zod errors → 400, jj errors → 400, the rest → 500. */
 function api(
   handler: (req: Bun.BunRequest) => Promise<Response> | Response,
 ): (req: Bun.BunRequest) => Promise<Response> {
   return async (req) => {
+    if (!isLoopbackRequest(req.headers)) {
+      return json({ error: "forbidden: cross-origin request" }, 403);
+    }
+    const method = req.method.toUpperCase();
+    if (method === "POST" || method === "PATCH" || method === "PUT") {
+      const length = req.headers.get("content-length");
+      const hasBody = length !== null && length !== "0";
+      const type = req.headers.get("content-type") ?? "";
+      if (hasBody && !type.toLowerCase().startsWith("application/json")) {
+        return json({ error: "content-type must be application/json" }, 415);
+      }
+    }
     try {
       return await handler(req);
     } catch (e) {
@@ -418,7 +457,10 @@ export function createServer(
       },
 
       "/api/events": {
-        GET: () => watcher.sseResponse(),
+        GET: (req: Bun.BunRequest) =>
+          isLoopbackRequest(req.headers)
+            ? watcher.sseResponse()
+            : json({ error: "forbidden: cross-origin request" }, 403),
       },
 
       "/favicon.ico": () => new Response(null, { status: 204 }),
@@ -426,6 +468,8 @@ export function createServer(
 
   const server = Bun.serve({
     port: opts.port,
+    // SECURITY: loopback-only bind is a load-bearing boundary — the guard in
+    // api() assumes no non-loopback listener. Never default to 0.0.0.0.
     hostname: opts.hostname ?? "localhost",
     development: process.env.NODE_ENV !== "production" && { hmr: false },
     routes: {

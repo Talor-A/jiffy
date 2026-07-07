@@ -28,7 +28,13 @@ async function request<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
-  const res = await fetch(path, init);
+  const withHeaders: RequestInit | undefined = init?.body
+    ? {
+        ...init,
+        headers: { "Content-Type": "application/json", ...init.headers },
+      }
+    : init;
+  const res = await fetch(path, withHeaders);
   const body: unknown = await res.json();
   if (!res.ok) {
     const parsed = ApiErrorSchema.safeParse(body);

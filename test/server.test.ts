@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import type { Server } from "bun";
 import { CommentStore } from "../lib/comments";
-import { createServer, type RepoWatcher } from "../lib/server";
+import { createServer, isLoopbackRequest, type RepoWatcher } from "../lib/server";
 import {
   CommentSchema,
   CommentListResponseSchema,
@@ -128,6 +128,7 @@ describe("comments API", () => {
   test("full lifecycle: create, list, patch, export, delete", async () => {
     const createRes = await fetch(url("/api/comments"), {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         specKey: "wc",
         specLabel: "Working copy",
@@ -147,6 +148,7 @@ describe("comments API", () => {
 
     const patchRes = await fetch(url(`/api/comments/${created.id}`), {
       method: "PATCH",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: "definitely beta" }),
     });
     expect(patchRes.status).toBe(200);
@@ -171,6 +173,7 @@ describe("comments API", () => {
   test("range comment round-trips endLine and exports a span", async () => {
     const createRes = await fetch(url("/api/comments"), {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         specKey: "wc",
         specLabel: "Working copy",
@@ -206,6 +209,7 @@ describe("comments API", () => {
   test("rejects malformed comment input", async () => {
     const res = await fetch(url("/api/comments"), {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ file: "x", text: "" }),
     });
     expect(res.status).toBe(400);
@@ -214,7 +218,11 @@ describe("comments API", () => {
 
 describe("/api/actions", () => {
   const post = (body: unknown) =>
-    fetch(url("/api/actions"), { method: "POST", body: JSON.stringify(body) });
+    fetch(url("/api/actions"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
 
   test("describe updates a change's description", async () => {
     // Resolve feat-a to its change id via the diff endpoint.
@@ -299,5 +307,69 @@ describe("misc", () => {
     const { value } = await reader.read();
     expect(new TextDecoder().decode(value)).toContain(": connected");
     controller.abort();
+  });
+});
+
+describe("request hardening", () => {
+  test("cross-origin POST to /api/actions is rejected", async () => {
+    const res = await fetch(url("/api/actions"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "https://evil.example",
+      },
+      body: JSON.stringify({ action: "new" }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  test("loopback Origin is accepted", async () => {
+    const res = await fetch(url("/api/stack"), {
+      headers: { Origin: `http://localhost:${server.port}` },
+    });
+    expect(res.status).toBe(200);
+  });
+
+  test("non-JSON body on a mutating route is rejected", async () => {
+    const res = await fetch(url("/api/comments"), {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(415);
+  });
+
+  test("SSE endpoint rejects cross-origin", async () => {
+    const res = await fetch(url("/api/events"), {
+      headers: { Origin: "https://evil.example" },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  test("server binds loopback by default", () => {
+    expect(String(server.hostname)).toBe("localhost");
+  });
+});
+
+describe("isLoopbackRequest", () => {
+  const h = (entries: Record<string, string>) => new Headers(entries);
+  test("rejects a rebound host", () => {
+    expect(isLoopbackRequest(h({ host: "evil.example:5959" }))).toBe(false);
+  });
+  test("accepts loopback hosts with ports", () => {
+    expect(isLoopbackRequest(h({ host: "localhost:5959" }))).toBe(true);
+    expect(isLoopbackRequest(h({ host: "127.0.0.1:5959" }))).toBe(true);
+    expect(isLoopbackRequest(h({ host: "[::1]:5959" }))).toBe(true);
+  });
+  test("rejects Origin null and non-loopback origins", () => {
+    expect(
+      isLoopbackRequest(h({ host: "localhost:1", origin: "null" })),
+    ).toBe(false);
+    expect(
+      isLoopbackRequest(h({ host: "localhost:1", origin: "https://evil.example" })),
+    ).toBe(false);
+  });
+  test("rejects a missing Host header", () => {
+    expect(isLoopbackRequest(h({}))).toBe(false);
   });
 });
