@@ -75,14 +75,26 @@ lib/
   comments.ts         CommentStore + markdown export for agent feedback
   server.ts           Bun.serve routes + SSE RepoWatcher
 src/
-  frontend.tsx        React mount (mounts App to #root)
-  app.tsx             Main React component — layout, SSE subscription, state
-  DiffViewer.tsx      Diff pane with Pierre FileDiff + inline comment UI
-  FileTreePanel.tsx   @pierre/trees file tree (git status, +/− counts)
-  api.ts              Typed fetch client (imports server schemas)
-  ChangeId.tsx        Short change-ID display with prefix highlighting
-  ContextMenu.tsx     Base UI context menu (copy, action, separator items)
-  HelpModal.tsx       Static help dialog
+  frontend.tsx          React mount (mounts App to #root)
+  app.tsx               Main component — composes hooks, layout, palette, pickers
+  AppLayout.tsx         AppSidebar + AppMain layout components
+  useRepoData.ts        Repo/stack/diff/comments loading + SSE subscription
+  useStackPicker.ts     Two-step picker state machine (squash, bookmark-move, describe)
+  usePaletteActions.ts  Command palette action list + enablement
+  stackPicker.ts        Pure picker config + ActionRequest builders
+  keyboard.ts           Global shortcuts (⌘K palette, guards while editing)
+  pageTitle.ts          Browser tab title helpers
+  DiffViewer.tsx        Diff pane with Pierre FileDiff + inline comment UI
+  FileTreePanel.tsx     @pierre/trees file tree (git status, +/− counts)
+  StackPanel.tsx        Stack sidebar (segments, push dots, PR links)
+  StackActionPickers.tsx Picker dialogs router for stack actions
+  BookmarkPicker.tsx    cmdk bookmark chooser
+  CommitPicker.tsx      cmdk change chooser (disable reasons, two-step flows)
+  CommandPalette.tsx    cmdk ⌘K palette
+  api.ts                Typed fetch client (imports server schemas)
+  ChangeId.tsx          Short change-ID display with prefix highlighting
+  ContextMenu.tsx       Base UI context menu (copy items)
+  HelpModal.tsx         Static help dialog
 config.toml           jj revset aliases for jiffy's queries
 ```
 
@@ -100,7 +112,7 @@ Complete model of the current stack: segments (changes grouped by bookmark), tru
 JSON persistence in `.jj/jiffy/comments.json`. Comments indexed by `specKey` for stable grouping. `exportMarkdown()` produces agent-ready markdown grouped by file with `file:line` references.
 
 ### RepoWatcher (`lib/server.ts`)
-Polls jj op log every 2s; broadcasts `repo-changed` SSE events. Defers refetch while a comment draft is open (client signals this via `Referer` header or explicit `/api/refresh`).
+Polls jj op log every 2s; broadcasts `repo-changed` SSE events. Draft deferral is client-side: `useRepoData` skips applying the diff refetch while a comment draft is open (`editingRef`) and replays it when the draft closes. The server has no draft awareness; `POST /api/refresh` forces an immediate snapshot + broadcast.
 
 ## jj CLI Patterns
 
