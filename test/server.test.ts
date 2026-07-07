@@ -2,7 +2,8 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import type { Server } from "bun";
 import { CommentStore } from "../lib/comments";
-import { createServer, type RepoWatcher } from "../lib/server";
+
+import { createServer, RepoWatcher } from "../lib/server";
 import {
   CommentSchema,
   CommentListResponseSchema,
@@ -299,5 +300,59 @@ describe("misc", () => {
     const { value } = await reader.read();
     expect(new TextDecoder().decode(value)).toContain(": connected");
     controller.abort();
+  });
+});
+
+describe("RepoWatcher polling", () => {
+  function stubJj(behavior?: () => Promise<string>) {
+    let calls = 0;
+    const jj = {
+      opHeadId: () => {
+        calls++;
+        return behavior ? behavior() : Promise.resolve("op-constant");
+      },
+    } as unknown as import("../lib/jj").Jj;
+    return { jj, calls: () => calls };
+  }
+
+  test("does not spawn polls while no client is connected", async () => {
+    const { jj, calls } = stubJj();
+    const w = new RepoWatcher(jj, 10);
+    w.start();
+    await w.ready;
+    await Bun.sleep(60);
+    w.stop();
+    expect(calls()).toBe(1); // baseline only
+  });
+
+  test("polls while a client is connected", async () => {
+    const { jj, calls } = stubJj();
+    const w = new RepoWatcher(jj, 10);
+    w.start();
+    await w.ready;
+    w.sseResponse(); // constructing the stream registers the client
+    await Bun.sleep(60);
+    w.stop();
+    expect(calls()).toBeGreaterThan(2);
+  });
+
+  test("overlapping polls are skipped, not stacked", async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const { jj, calls } = stubJj(async () => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await Bun.sleep(35); // 3+ interval ticks land while one poll runs
+      inFlight--;
+      return "op-constant";
+    });
+    const w = new RepoWatcher(jj, 10);
+    w.start();
+    await w.ready;
+    w.sseResponse();
+    await Bun.sleep(80);
+    w.stop();
+    expect(maxInFlight).toBe(1);
+    expect(calls()).toBeGreaterThan(1);
   });
 });
