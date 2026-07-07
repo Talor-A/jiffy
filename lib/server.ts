@@ -37,6 +37,7 @@ export class RepoWatcher {
   private clients = new Set<ReadableStreamDefaultController<Uint8Array>>();
   private lastOpId: string | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
+  private polling = false;
 
   /** Resolves once the baseline op id is recorded (see {@link start}). */
   ready: Promise<void> = Promise.resolve();
@@ -67,20 +68,31 @@ export class RepoWatcher {
   }
 
   private async poll(): Promise<void> {
-    let opId: string;
+    if (this.polling) return; // a slow jj read outlived the interval tick
+    this.polling = true;
     try {
-      opId = await this.jj.opHeadId();
-    } catch {
-      return; // transient lock contention etc.; try again next tick
+      // No listeners and baseline already primed: skip the jj spawn entirely.
+      // The next poll after a client connects compares against this stale
+      // baseline and broadcasts once — a cheap catch-up for the new client.
+      if (this.clients.size === 0 && this.lastOpId !== null) return;
+
+      let opId: string;
+      try {
+        opId = await this.jj.opHeadId();
+      } catch {
+        return; // transient lock contention etc.; try again next tick
+      }
+      if (this.lastOpId !== null && opId !== this.lastOpId) {
+        this.broadcast("repo-changed");
+      } else {
+        // SSE comment ping so Bun's idleTimeout (10s) never reaps a quiet
+        // stream; a reaped stream can miss a broadcast while reconnecting.
+        this.send(new TextEncoder().encode(`: ka\n\n`));
+      }
+      this.lastOpId = opId;
+    } finally {
+      this.polling = false;
     }
-    if (this.lastOpId !== null && opId !== this.lastOpId) {
-      this.broadcast("repo-changed");
-    } else {
-      // SSE comment ping so Bun's idleTimeout (10s) never reaps a quiet
-      // stream; a reaped stream can miss a broadcast while reconnecting.
-      this.send(new TextEncoder().encode(`: ka\n\n`));
-    }
-    this.lastOpId = opId;
   }
 
   broadcast(type: string): void {
