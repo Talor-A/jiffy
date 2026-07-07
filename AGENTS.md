@@ -17,9 +17,9 @@ See `README.md` and `CLAUDE.md` for architecture and the full list of commands
 ### Running the app
 - Jiffy only works *inside an initialized jj repo*. To get one quickly, run
   `bun scripts/demo-repo.ts` — it prints the path to a throwaway stacked jj
-  repo. Then point Jiffy at it: `bun run dev <printed-path> --no-open --port 5959`.
-- The CLI port default is random (`0`) despite the README mentioning 5959, so
-  pass `--port` explicitly when you need a known URL.
+  repo. Then point Jiffy at it: `bun run dev <printed-path> --no-open --port 8080`.
+- The CLI port default is random (`0`), so pass `--port` explicitly when you
+  need a known URL.
 - On Linux the browser is never auto-opened (auto-open is macOS-only); use
   `--no-open` and open the URL yourself.
 

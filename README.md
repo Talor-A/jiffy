@@ -15,7 +15,7 @@ bun install
 bun index.ts [path-to-repo]   # defaults to cwd; opens the browser
 ```
 
-Options: `-p/--port N` (default 5959), `--no-open`.
+Options: `-p/--port N` (default: random — the URL is printed on startup), `--no-open`.
 
 ### What you get
 
