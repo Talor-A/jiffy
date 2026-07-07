@@ -59,6 +59,10 @@ bun test            # test suite
 bun run typecheck   # type check only
 ```
 
+`jiffy --wait` blocks until a human approves (exit 0) or requests changes
+(comments on stdout, exit 1). Auto-enables when `CLAUDECODE=1` and stdout
+is not a TTY.
+
 `scripts/demo-repo.ts` creates a throwaway stacked jj repo for development. `scripts/screenshot.ts` drives headless Chrome against a running server.
 
 ## Architecture
@@ -190,6 +194,7 @@ PATCH /api/comments/:id Update comment text
 DELETE /api/comments/:id Delete comment
 GET  /api/export        Export comments as markdown
 POST /api/actions       Run a jj action (discriminated union)
+POST /api/review        Finish an agent review (only in --wait mode; resolves the CLI's review promise)
 POST /api/refresh       Force watcher refresh
 GET  /api/events        SSE stream (broadcasts "repo-changed")
 ```

@@ -3,6 +3,7 @@ import { CommandPalette } from "./CommandPalette";
 import { AppMain, AppSidebar } from "./AppLayout";
 import { StackActionPickers } from "./StackActionPickers";
 import { HelpModal } from "./HelpModal";
+import { ReviewBar } from "./ReviewBar";
 import { formatPageTitle } from "./pageTitle";
 import { useKeyboardShortcuts } from "./keyboard";
 import { useRepoData } from "./useRepoData";
@@ -13,6 +14,9 @@ export function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [reviewFinished, setReviewFinished] = useState<
+    null | "approve" | "request-changes"
+  >(null);
 
   const {
     repo,
@@ -76,6 +80,22 @@ export function App() {
     handleRefresh,
   });
 
+  if (reviewFinished) {
+    return (
+      <div className="review-done">
+        <h1>
+          {reviewFinished === "approve" ? "approved" : "changes requested"}
+        </h1>
+        <p>
+          {reviewFinished === "approve"
+            ? "jiffy has exited — the agent will continue."
+            : "your comments were handed to the agent. jiffy has exited."}
+        </p>
+        <p>you can close this tab.</p>
+      </div>
+    );
+  }
+
   return (
     <>
       <title>{formatPageTitle(spec.label, repo)}</title>
@@ -88,6 +108,14 @@ export function App() {
           spec={spec}
           comments={comments}
           onSelect={setSpec}
+          reviewBar={
+            repo?.reviewMode ? (
+              <ReviewBar
+                commentCount={comments.length}
+                onFinished={setReviewFinished}
+              />
+            ) : null
+          }
         />
         <AppMain
           actionError={actionError}
