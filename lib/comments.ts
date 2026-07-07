@@ -1,3 +1,4 @@
+import { rename } from "node:fs/promises";
 import { z } from "zod";
 import { CommentSchema, type Comment, type CommentInput } from "./schema";
 
@@ -14,27 +15,41 @@ const StoredCommentsSchema = z.object({
 export class CommentStore {
   private comments: Comment[] = [];
   private loaded = false;
+  private queue: Promise<unknown> = Promise.resolve();
 
   constructor(readonly path: string) {}
 
   private async load(): Promise<void> {
     if (this.loaded) return;
-    this.loaded = true;
     const file = Bun.file(this.path);
-    if (!(await file.exists())) return;
-    const data = StoredCommentsSchema.parse(await file.json());
-    this.comments = data.comments;
+    if (await file.exists()) {
+      const data = StoredCommentsSchema.parse(await file.json());
+      this.comments = data.comments;
+    }
+    this.loaded = true;
   }
 
   private async save(): Promise<void> {
+    const tmp = this.path + ".tmp";
     await Bun.write(
-      this.path,
+      tmp,
       JSON.stringify(
         { version: 1 as const, comments: this.comments },
         null,
         2,
       ),
     );
+    await rename(tmp, this.path);
+  }
+
+  /** Run mutations one at a time; a failed op must not block later ones. */
+  private serialize<T>(op: () => Promise<T>): Promise<T> {
+    const next = this.queue.then(op, op);
+    this.queue = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
   }
 
   async list(specKey?: string): Promise<Comment[]> {
@@ -45,42 +60,50 @@ export class CommentStore {
   }
 
   async add(input: CommentInput): Promise<Comment> {
-    await this.load();
-    const comment: Comment = {
-      ...input,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-    };
-    this.comments.push(comment);
-    await this.save();
-    return comment;
+    return this.serialize(async () => {
+      await this.load();
+      const comment: Comment = {
+        ...input,
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+      };
+      this.comments.push(comment);
+      await this.save();
+      return comment;
+    });
   }
 
   async updateText(id: string, text: string): Promise<Comment | null> {
-    await this.load();
-    const comment = this.comments.find((c) => c.id === id);
-    if (!comment) return null;
-    comment.text = text;
-    await this.save();
-    return comment;
+    return this.serialize(async () => {
+      await this.load();
+      const comment = this.comments.find((c) => c.id === id);
+      if (!comment) return null;
+      comment.text = text;
+      await this.save();
+      return comment;
+    });
   }
 
   async remove(id: string): Promise<boolean> {
-    await this.load();
-    const before = this.comments.length;
-    this.comments = this.comments.filter((c) => c.id !== id);
-    await this.save();
-    return this.comments.length < before;
+    return this.serialize(async () => {
+      await this.load();
+      const before = this.comments.length;
+      this.comments = this.comments.filter((c) => c.id !== id);
+      await this.save();
+      return this.comments.length < before;
+    });
   }
 
   async clear(specKey?: string): Promise<number> {
-    await this.load();
-    const before = this.comments.length;
-    this.comments = specKey
-      ? this.comments.filter((c) => c.specKey !== specKey)
-      : [];
-    await this.save();
-    return before - this.comments.length;
+    return this.serialize(async () => {
+      await this.load();
+      const before = this.comments.length;
+      this.comments = specKey
+        ? this.comments.filter((c) => c.specKey !== specKey)
+        : [];
+      await this.save();
+      return before - this.comments.length;
+    });
   }
 }
 
