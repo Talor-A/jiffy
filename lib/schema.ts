@@ -127,6 +127,7 @@ export const RepoInfoSchema = z.object({
   root: z.string(),
   trunkName: z.string(),
   github: GhRepoSchema.nullable(),
+  reviewMode: z.boolean(),
 });
 export type RepoInfo = z.infer<typeof RepoInfoSchema>;
 
@@ -265,6 +266,25 @@ export const ActionRequestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("new") }),
 ]);
 export type ActionRequest = z.infer<typeof ActionRequestSchema>;
+
+// ---------------------------------------------------------------------------
+// API: /api/review (only mounted in --wait mode)
+// ---------------------------------------------------------------------------
+
+export const ReviewVerdictSchema = z.enum(["approve", "request-changes"]);
+export type ReviewVerdict = z.infer<typeof ReviewVerdictSchema>;
+
+export const ReviewFinishRequestSchema = z.object({
+  verdict: ReviewVerdictSchema,
+});
+
+/** What `createServer` resolves with when the review finishes. */
+export interface ReviewResult {
+  verdict: ReviewVerdict;
+  /** Agent-ready markdown (exportMarkdown output); empty string on approve. */
+  markdown: string;
+  count: number;
+}
 
 // ---------------------------------------------------------------------------
 // API: misc

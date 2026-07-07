@@ -109,6 +109,16 @@ export function runAction(input: ActionRequest): Promise<{ ok: true }> {
   });
 }
 
+/** Finish an agent review session (--wait mode only). */
+export function finishReview(
+  verdict: "approve" | "request-changes",
+): Promise<{ ok: true }> {
+  return request(OkResponseSchema, "/api/review", {
+    method: "POST",
+    body: JSON.stringify({ verdict }),
+  });
+}
+
 export async function refreshRepo(): Promise<void> {
   const res = await fetch("/api/refresh", { method: "POST" });
   if (!res.ok) throw new Error(`refresh failed (${res.status})`);

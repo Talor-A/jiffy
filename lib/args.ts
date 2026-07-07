@@ -6,6 +6,8 @@ export const CliArgsSchema = z.object({
   help: z.boolean().default(false),
   /** Directory to serve; any path inside the jj workspace works. */
   path: z.string().default("."),
+  /** When set, overrides env-based wait-mode auto-detection in index.ts. */
+  wait: z.boolean().optional(),
 });
 export type CliArgs = z.infer<typeof CliArgsSchema>;
 
@@ -20,6 +22,12 @@ export function parseCli(argv: string[]): CliArgs {
         break;
       case "--no-open":
         raw.open = false;
+        break;
+      case "--wait":
+        raw.wait = true;
+        break;
+      case "--no-wait":
+        raw.wait = false;
         break;
       case "--help":
       case "-h":
@@ -48,6 +56,10 @@ Usage: jiffy [path] [options]
 Options:
   -p, --port N   port to listen on (default: random)
   --no-open      don't open the browser
+  --wait         block until the review is finished in the browser:
+                 approve → exit 0; request changes → comments are printed
+                 to stdout as markdown and jiffy exits 1
+  --no-wait      disable wait mode (overrides auto-detection)
   -h, --help     show this help
 `;
 }

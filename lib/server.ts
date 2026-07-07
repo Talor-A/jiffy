@@ -15,7 +15,9 @@ import {
   type DiffEndpoint,
   type DiffResponse,
   type GithubContext,
+  ReviewFinishRequestSchema,
   type RepoInfo,
+  type ReviewResult,
   type StackView,
 } from "./schema";
 
@@ -146,11 +148,20 @@ function api(
 
 export function createServer(
   deps: ServerDeps,
-  opts: { port: number; hostname?: string },
-): { server: Server<unknown>; watcher: RepoWatcher } {
+  opts: { port: number; hostname?: string; reviewMode?: boolean },
+): { server: Server<unknown>; watcher: RepoWatcher; review: Promise<ReviewResult> | null } {
   const { jj, store } = deps;
   const github = deps.github ?? fetchGithubContext;
   const watcher = new RepoWatcher(jj);
+
+  const reviewMode = opts.reviewMode ?? false;
+  let resolveReview: ((r: ReviewResult) => void) | null = null;
+  const review: Promise<ReviewResult> | null = reviewMode
+    ? new Promise<ReviewResult>((resolve) => {
+        resolveReview = resolve;
+      })
+    : null;
+  let reviewFinished = false;
 
   let githubCache: { value: GithubContext | null; at: number } | null = null;
   const getGithub = async (force = false): Promise<GithubContext | null> => {
@@ -278,6 +289,7 @@ export function createServer(
             root: jj.cwd,
             trunkName,
             github: gh?.repo ?? null,
+            reviewMode,
           };
           return json(info);
         }),
@@ -407,6 +419,27 @@ export function createServer(
         }),
       },
 
+      "/api/review": {
+        POST: api(async (req) => {
+          if (!reviewMode || !resolveReview) {
+            return json({ error: "not running in --wait mode" }, 404);
+          }
+          if (reviewFinished) {
+            return json({ error: "review already finished" }, 409);
+          }
+          const { verdict } = ReviewFinishRequestSchema.parse(await req.json());
+          const comments = await store.list();
+          const gh = await getGithub();
+          const markdown =
+            verdict === "request-changes"
+              ? exportMarkdown(comments, { repoLabel: gh?.repo.nameWithOwner })
+              : "";
+          reviewFinished = true;
+          resolveReview({ verdict, markdown, count: comments.length });
+          return json({ ok: true });
+        }),
+      },
+
       "/api/refresh": {
         POST: api(async () => {
           await jj.snapshot();
@@ -439,7 +472,7 @@ export function createServer(
   });
 
   watcher.start();
-  return { server, watcher };
+  return { server, watcher, review };
 }
 
 function pickEndpoint(change: ChangeInfo): DiffEndpoint {

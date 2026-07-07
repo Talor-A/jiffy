@@ -346,6 +346,58 @@ button.danger {
     border-top: 1px solid var(--border);
 }
 
+.review-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--panel);
+    position: sticky;
+    bottom: 0;
+    margin-top: auto;
+}
+
+.review-bar-error {
+    flex: 1 1 100%;
+    background: color-mix(in srgb, var(--red) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--red) 50%, transparent);
+    color: var(--red);
+    padding: 6px 10px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    border-radius: 6px;
+}
+
+.review-approve {
+    flex: 1;
+    font-weight: 600;
+}
+
+.review-request-changes {
+    flex: 1;
+}
+
+.review-done {
+    display: grid;
+    place-items: center;
+    min-height: 100vh;
+    padding: 32px;
+    text-align: center;
+    gap: 12px;
+}
+
+.review-done h1 {
+    margin: 0;
+    font-size: 28px;
+}
+
+.review-done p {
+    margin: 0;
+    color: var(--text-dim);
+    max-width: 36rem;
+}
+
 /* ------------------------------------------------------------ diff panel */
 
 .error-banner {

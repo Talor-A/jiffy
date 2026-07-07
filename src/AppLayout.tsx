@@ -13,6 +13,7 @@ export function AppSidebar({
   onSelect,
   setHelpOpen,
   helpOpen,
+  reviewBar,
 }: {
   repo: RepoInfo | null;
   stack: StackView | null;
@@ -21,6 +22,7 @@ export function AppSidebar({
   onSelect: (spec: DiffSpec) => void;
   setHelpOpen: (open: boolean) => void;
   helpOpen: boolean;
+  reviewBar: React.ReactNode;
 }) {
   return (
     <aside className="sidebar">
@@ -65,6 +67,7 @@ export function AppSidebar({
           onSelect={onSelect}
         />
       )}
+      {reviewBar}
     </aside>
   );
 }

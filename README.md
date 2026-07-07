@@ -15,7 +15,22 @@ bun install
 bun index.ts [path-to-repo]   # defaults to cwd; opens the browser
 ```
 
-Options: `-p/--port N` (default: random — the URL is printed on startup), `--no-open`.
+Options: `-p/--port N` (default: random — the URL is printed on startup), `--no-open`, `--wait` (block until
+review finishes; see below), `--no-wait` (disable auto-detection).
+
+### Agent review flow
+
+Agents can block on a human review:
+
+```bash
+jiffy --wait   # or: bun index.ts <repo> --wait
+# approve in the browser        → exit 0
+# request changes in the browser → comments on stdout, exit 1
+```
+
+Wait mode also turns on automatically when stdout is piped and
+`CLAUDECODE=1` is set (i.e. when an agent like Claude Code launches
+jiffy); `--no-wait` overrides.
 
 ### What you get
 
