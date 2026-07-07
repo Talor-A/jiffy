@@ -161,10 +161,10 @@ export function segmentSpec(segment: {
 }): DiffSpec {
   // The unbookmarked tip segment is the working-copy view; the revset form
   // (unlike pinned change ids) snapshots live file edits into the diff.
-  // if (segment.name === null) return WC_SPEC;
+  if (segment.name === null) return WC_SPEC;
   return {
     key: `segment:${segment.name}`,
-    label: segment.name ?? "local changes",
+    label: segment.name,
     params: segment.baseChangeId
       ? { from: segment.baseChangeId, to: segment.headChangeId }
       : { change: segment.headChangeId },
